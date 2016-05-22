@@ -1,0 +1,127 @@
+\documentclass[12pt]{article}
+
+\usepackage{mathtools}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumerate}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage[normalem]{ulem}
+\usepackage[pdftitle={ECE 358 Assignment 2},%
+pdfsubject={University of Waterloo, ECE 358},%
+pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
+
+\title{ECE 358 Assignment 1}
+\author{Jason Shao, Lihao Luo, Minghao Lu}
+\date{May 21, 2016}
+
+\begin{document}
+\maketitle
+\renewcommand{\thesubsection}{Problem \arabic{subsection}}
+
+
+\def\question#1{\item[\bf #1.]}
+\def\part#1{\item[\bf #1)]}
+\newcommand{\pc}[1]{\mbox{\textbf{#1}}} % pseudocode
+
+\begin{enumerate}
+    \item 
+    Suppose we are given some integer $m > 1$, which parameterizes the $m$-bit ID's of our Chord DHT. Then, consider an instance of the DHT that is the following:
+    \begin{itemize}
+        \item A peer at 0
+        \item A peer at $2^{m-1}$
+        \item A peer at $2^{m} - 1$
+    \end{itemize}
+    
+    \begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\textwidth]{Chord}
+    \caption{Configuration of Chord}
+	\end{figure}
+    As we can see from Figure 1, the finger table for peer 0 contains all $2^{m-1}$. This is because $FT_p[i] = succ(p + 2^{i-1}) , i \in [1,m]$ so $$FT_0[i] = succ(0 + 2^{i-1}), i \in [1, m]$$
+    This ranges from $succ(0 + 2^0)$ to $succ(0 + 2^{m-1})$ which both have values of peer $2^{m-1}$ since there are no peers between peer 0 and peer $2^{m-1}$. Hence, the finger table values of peer 0 are all $2^{m-1}$. \\ \\
+    Now, consider $lookup(2^m - 1)$ at peer 0. We know that the next hop will always be peer $2^{m-1}$. In this situation, $p = 0$, $q = 2^{m-1}$, $k = 2^m - 1$. We can see that there are no peers between $p$ and $q$. However, there is one peer between $p$ and $k$. Therefore, we can draw the following contradiction from the original claim:
+    \begin{align*}
+    q - p &\ge (k-p)/2 \\
+    0 &\ge \frac{1}{2}
+    \end{align*}
+    By the principle of contradiction, it is shown for all $m > 1$, there exists some configuration that disproves $ q - p \ge (k-p)/2 $.
+    
+    \item 
+    \begin{enumerate}
+        \item  \underline{$N_2$} \\ \\
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.00000100 & 1.2.3.4 \\ 
+         Subnet Mask & 11111111.11111111.11111111.11110000 & 255.255.255.240 \\
+         After Mask & 00000001.00000010.00000011.00000000 & 1.2.3.0 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.4 does not lie in $N_1$ as the post-mask value is not 1.2.3.160.\\ \\   
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.00000100 & 1.2.3.4 \\ 
+         Subnet Mask & 11111111.11111111.11111111.00000000 & 255.255.255.0 \\
+         After Mask & 00000001.00000010.00000011.00000000 & 1.2.3.0 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.4 does lie in $N_2$ as the post-mask value is 1.2.3.0. \\
+        
+        \item \underline{$N_2$}\\ \\
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.11000011 & 1.2.3.195 \\ 
+         Subnet Mask & 11111111.11111111.11111111.11110000 & 255.255.255.240 \\
+         After Mask & 00000001.00000010.00000011.11000000 & 1.2.3.192 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.195 does not lie in $N_1$ as the post-mask value is not 1.2.3.160.\\ \\
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.11000011 & 1.2.3.195 \\ 
+         Subnet Mask & 11111111.11111111.11111111.00000000 & 255.255.255.0 \\
+         After Mask & 00000001.00000010.00000011.00000000 & 1.2.3.0 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.195 does lie in $N_2$ as the post-mask value is 1.2.3.0. \\
+        
+        \item \underline{Both}\\ \\
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.10101011 & 1.2.3.171 \\ 
+         Subnet Mask & 11111111.11111111.11111111.11110000 & 255.255.255.240 \\
+         After Mask & 00000001.00000010.00000011.10100000 & 1.2.3.160 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.171 does does lie in $N_1$ as the post-mask value is 1.2.3.160. \\ \\
+        \begin{tabular}{ |c|c|c| } 
+         \hline
+         & Binary Form & Dot Decimal Notation \\ 
+         \hline
+         IP Address & 00000001.00000010.00000011.10101011 & 1.2.3.171 \\ 
+         Subnet Mask & 11111111.11111111.11111111.00000000 & 255.255.255.0 \\
+         After Mask & 00000001.00000010.00000011.00000000 & 1.2.3.0 \\
+         \hline
+        \end{tabular}
+        
+        We see that address 1.2.3.171 does lie in $N_2$ as the post-mask value is 1.2.3.0.
+    \end{enumerate}
+\end{enumerate}
+\end{document}
