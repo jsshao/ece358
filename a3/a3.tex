@@ -27,7 +27,21 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 \newcommand{\pc}[1]{\mbox{\textbf{#1}}} % pseudocode
 
 \begin{enumerate}
+    \item The tight lower bound for the largest-sized routing table across all the $n$ routers is 2. This is because a router in this IP network forwards packets between exactly 2 subnetworks. That means it has to be able to lookup at least two different subnet prefixes to know how to forward the datagram to each of the two subnetworks. \\ \\
     \item 
+    \begin{verbatim}
+    def decision(P, k):
+        P' = P
+        for i <- 0 to P'.size() - 1:
+            for j <- i + 1 to P'.size() - 1:
+                if mergeable(P'[i], P'[j]):
+                    P'.add(merge(P'[i], P'[j]))
+                    P'.remove(P'[i])
+                    P'.remove(P'[j])
+                    i <- 0
+                    j <- 0
+        return P'.size() <= k    					
+    \end{verbatim}
   
 \end{enumerate}
 \end{document}
