@@ -43,5 +43,14 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
         return P'.size() <= k    					
     \end{verbatim}
   
+	\item Mike's go here
+	\item Yes, I concur with Alice. \\ \\Let $T$ be the initial minimum spanning tree of $G$. Let $u$ be the node that leaves $G$, and let $v$ be the node such that $uv$ is the only edge incident to $u$ in $T$. Let $T'$ be $T$ without $u$ and $uv$. I want to show that $T'$ is the minimum spanning tree of the new graph. \\ \\ \textbf{Proof By Contradiction} \\ Assume for the sake of contradiction that $T'$ is not the most minimum spanning tree of the new graph. That means there must exist some tree $R$ that spans the new graph, and the total weight of its edges is less than that of $T'$. \\ \\ Now consider $R$ with $uv$ added to the tree. We can show that $R$ with $uv$ is a spanning tree of $G$, because $R$ is a tree that spans every node in $G$ except $u$. However, we know $v$ is in $R$ so $uv$ can be added to $R$ to span all nodes in $G$ while maintaining the tree structure. \\ \\ Moreover, observe that $R$ with $uv$ has total weight less than that of $T$ because:
+	\begin{align*}
+	weight(R) &< weight(T')\\
+	weight(R) + weight(uv) &< weight(T') + weight(uv)\\
+	weight(R) + weight(uv) &< weight(T)
+	\end{align*}
+	Now we have shown that $R$ with $uv$ is a spanning tree of $G$ and its weight is less than that of the $T$, the minimum spanning tree. This is clearly a contradiction, so we can declare that there does not exist another spanning tree that has total weight less than $T'$. Therefore, we do not need to recompute the MST as when a node leaves the network and it only has one edge incident on it, the new MST is merely the original tree with the node and its incident edge removed.
+	\item Frank's go here
 \end{enumerate}
 \end{document}
