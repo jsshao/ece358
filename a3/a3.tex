@@ -27,9 +27,40 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 \newcommand{\pc}[1]{\mbox{\textbf{#1}}} % pseudocode
 
 \begin{enumerate}
-    \item The tight lower bound for the largest-sized routing table across all the $n$ routers is 2. This is because a router in this IP network forwards packets between exactly 2 subnetworks. That means it has to be able to lookup at least two different subnet prefixes to know how to forward the datagram to each of the two subnetworks. \\ \\
-    \item 
+    \item I am answering this question under the assumption that each edge corresponds to a unique router. \\ \\The tight lower bound for the largest-sized routing table across all the $n$ routers is 2. I will prove this by first showing for any configuration, I can assign IP addresses such that the maximum routing table size is 2. Then, I will prove that this is a lower bound by showing that the routing table cannot be any smaller. 
+    
+	For any router (edge) in the configuration, partition the remaining subnetworks (vertices) into two sets: one set for the subnetworks on the left of the edge and one set for the subnetworks on the right. We will assign IP addresses using  hierarchical addressing so that the addressing is sensitive to this topology. That means a router only needs to keep two entries in its table, one for each router in its incident subnetworks. The reason we don't care about the rest of the subnetworks' addresses is because the hierarchy of the network would allow the next search
+    
+    This is because a router in this IP network forwards packets between exactly 2 subnetworks. That means it has to be able to lookup at least two different subnet prefixes to know how to forward the datagram to each of the two subnetworks. \\ \\
+    \item Yes, there exists a polynomial time algorithm for the decision problem. I will prove it by construction:
+    \begin{itemize}
+    \item Look at every pair of prefixes
+    \item Check if any pair can be merged
+    \begin{itemize}
+    	\item If so, remove the pair of prefixes and insert the aggregated prefix. Then re-start at step 1 by checking all pairs of prefixes again
+    	\item If not, check the final size of the list of prefixes, and compare it to $k$.
+    \end{itemize}
+    \end{itemize}
+    Checking if two prefixes can be merged can be done in O(1) time as the IP address is bounded. Merging the two prefixes can also be done in O(1) time by removing two existing 32-bit prefixes and inserting a new 32-bit prefix. There are $O(n^2)$ pairs to check where $n$ is the initial number of prefixes. After we do a merge, we reduce the size of the set of prefixes and check all pairs again. Therefore, we can do at most $O(n)$ merges since it reduces the size of the set by 1 each time. In all, the algorithm has a worst case run-time of $O(n)O(n^2) = O(n^3)$. This is polynomial-time in the input size since there are $n$ prefixes in the prefix list. \\ \\ Assuming prefixes are stored as an array of bits, here is the pseudo-code: 
     \begin{verbatim}
+    def mergeable(prefix1, prefix2):
+        if prefix1.prefix_length != prefix2.prefix_length:
+            return False
+            
+        // Check that every bit is same except last bit
+        for i <- 0 to prefix1.prefix_length - 2:
+            if prefix1[i] != prefix2[i]:
+                return False
+        return prefix1[prefix_length - 1] != prefix2[prefix_length - 1]
+
+    
+    def merge(prefix1, prefix2):
+        // Decrement prefix length by 1
+        output = prefix1
+        output[prefix1.prefix_length - 1] = 0
+        output.prefix_length = prefix1.prefix_length - 1    
+    
+    
     def decision(P, k):
         P' = P
         for i <- 0 to P'.size() - 1:

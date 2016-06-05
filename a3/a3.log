@@ -1,4 +1,8 @@
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.1.11)  4 JUN 2016 22:57
+=======
+This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2016.5.3)  4 JUN 2016 21:25
+>>>>>>> add analysis to a3q2
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -405,48 +409,76 @@ LaTeX Font Info:    Try loading font information for U+msb on input line 22.
  (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-Underfull \hbox (badness 10000) in paragraph at lines 30--32
+Underfull \hbox (badness 10000) in paragraph at lines 30--31
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 30--32
+Underfull \hbox (badness 10000) in paragraph at lines 34--35
 
  []
 
 
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 Underfull \hbox (badness 10000) in paragraph at lines 46--47
+=======
+Underfull \hbox (badness 10000) in paragraph at lines 34--35
+>>>>>>> add analysis to a3q2
 
  []
 
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 37.
+(/usr/share/texlive/texmf-dist/tex/latex/base/omscmr.fd
+File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+)
+LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <12> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 37.
 
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 Underfull \hbox (badness 10000) in paragraph at lines 49--50
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 49--50
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 49--50
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 49--50
+=======
+Underfull \hbox (badness 10000) in paragraph at lines 44--45
+>>>>>>> add analysis to a3q2
 
  []
 
 [1
 
-{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-Underfull \hbox (badness 10000) in paragraph at lines 57--60
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
+=======
+{/usr/share/texlive/texmf-dist/fonts/map/pdftex/updmap/pdftex.map}]
+Underfull \hbox (badness 10000) in paragraph at lines 78--79
+>>>>>>> add analysis to a3q2
 
  []
 
 
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
+=======
+Underfull \hbox (badness 10000) in paragraph at lines 78--79
+>>>>>>> add analysis to a3q2
+
+ []
+
+
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
+Underfull \hbox (badness 10000) in paragraph at lines 57--60
+=======
+Underfull \hbox (badness 10000) in paragraph at lines 78--79
+>>>>>>> add analysis to a3q2
+
+ []
+
+
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 Underfull \hbox (badness 10000) in paragraph at lines 61--64
 
  []
@@ -465,10 +497,14 @@ Overfull \hbox (21.5108pt too wide) in paragraph at lines 65--72
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 65--72
+=======
+Underfull \hbox (badness 10000) in paragraph at lines 78--79
+>>>>>>> add analysis to a3q2
 
  []
 
 [2]
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 Package atveryend Info: Empty hook `BeforeClearDocument' on input line 74.
  [3]
 Package atveryend Info: Empty hook `AfterLastShipout' on input line 74.
@@ -487,16 +523,47 @@ Here is how much of TeX's memory you used:
  11765 words of font info for 47 fonts, out of 8000000 for 9000
  36 hyphenation exceptions out of 8191
  40i,8n,35p,1003b,427s stack positions out of 5000i,500n,10000p,200000b,80000s
+=======
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 87.
+ [3]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 87.
+ (./a3.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 87.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 87.
+Package rerunfilecheck Info: File `a3.out' has not changed.
+(rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 87.
+ ) 
+Here is how much of TeX's memory you used:
+ 7035 strings out of 493408
+ 102093 string characters out of 6144158
+ 199713 words of memory out of 5000000
+ 10380 multiletter control sequences out of 15000+600000
+ 11765 words of font info for 47 fonts, out of 8000000 for 9000
+ 953 hyphenation exceptions out of 8191
+ 40i,8n,35p,1003b,429s stack positions out of 5000i,500n,10000p,200000b,80000s
+>>>>>>> add analysis to a3q2
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texli
 ve/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texm
+<<<<<<< cb1b3593bf280e463ec324d5f87a0d19014d9190
 f-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmtt12.pfb>
 Output written on a3.pdf (3 pages, 71009 bytes).
 PDF statistics:
  52 PDF objects out of 1000 (max. 8388607)
  40 compressed objects within 1 object stream
+=======
+f-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/f
+onts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/t
+ype1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmtt12.pfb>
+Output written on a3.pdf (3 pages, 85428 bytes).
+PDF statistics:
+ 60 PDF objects out of 1000 (max. 8388607)
+ 46 compressed objects within 1 object stream
+>>>>>>> add analysis to a3q2
  9 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 
