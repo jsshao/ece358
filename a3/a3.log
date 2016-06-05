@@ -1,11 +1,11 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2016.5.3)  4 JUN 2016 17:59
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.1.11)  4 JUN 2016 22:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
 **a3.tex
 (./a3.tex
 LaTeX2e <2011/06/27>
-Babel <3.9k> and hyphenation patterns for 59 languages loaded.
+Babel <3.9h> and hyphenation patterns for 4 languages loaded.
 (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
 Document Class: article 2007/10/19 v1.4h Standard LaTeX document class
 (/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo
@@ -415,46 +415,77 @@ Underfull \hbox (badness 10000) in paragraph at lines 30--32
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 47--48
+Underfull \hbox (badness 10000) in paragraph at lines 46--47
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 47--48
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 47--48
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 47--48
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 49--50
 
  []
 
 [1
 
-{/usr/share/texlive/texmf-dist/fonts/map/pdftex/updmap/pdftex.map}]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 56.
- [2]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 56.
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
+Underfull \hbox (badness 10000) in paragraph at lines 57--60
 
-(./a3.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 56.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 56.
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 61--64
+
+ []
+
+
+Overfull \hbox (9.76093pt too wide) in paragraph at lines 65--72
+\OT1/cmr/m/n/12 (i) re-sponse (ii) 10.11.12.25 (iii) 10.11.12.25's MAC ad-dress
+ (iv) 10.11.12.1 (v) 10.11.12.1's
+ []
+
+
+Overfull \hbox (21.5108pt too wide) in paragraph at lines 65--72
+\OT1/cmr/m/n/12 (i) re-sponse (ii) 15.16.17.18 (iii) 15.16.17.18's MAC ad-dress
+ (iv) 15.16.17.25 (v) 15.16.17.25's
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 65--72
+
+ []
+
+[2]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 74.
+ [3]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 74.
+ (./a3.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 74.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 74.
 Package rerunfilecheck Info: File `a3.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 56.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 74.
  ) 
 Here is how much of TeX's memory you used:
- 7017 strings out of 493408
- 101795 string characters out of 6144158
- 197713 words of memory out of 5000000
- 10366 multiletter control sequences out of 15000+600000
+ 7018 strings out of 494985
+ 101807 string characters out of 6180356
+ 196359 words of memory out of 5000000
+ 10156 multiletter control sequences out of 15000+600000
  11765 words of font info for 47 fonts, out of 8000000 for 9000
- 953 hyphenation exceptions out of 8191
+ 36 hyphenation exceptions out of 8191
  40i,8n,35p,1003b,427s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/shar
@@ -462,10 +493,10 @@ e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texli
 ve/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on a3.pdf (2 pages, 65972 bytes).
+Output written on a3.pdf (3 pages, 71009 bytes).
 PDF statistics:
- 48 PDF objects out of 1000 (max. 8388607)
- 37 compressed objects within 1 object stream
- 8 named destinations out of 1000 (max. 500000)
+ 52 PDF objects out of 1000 (max. 8388607)
+ 40 compressed objects within 1 object stream
+ 9 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 
