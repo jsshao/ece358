@@ -51,6 +51,22 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 	weight(R) + weight(uv) &< weight(T)
 	\end{align*}
 	Now we have shown that $R$ with $uv$ is a spanning tree of $G$ and its weight is less than that of the $T$, the minimum spanning tree. This is clearly a contradiction, so we can declare that there does not exist another spanning tree that has total weight less than $T'$. Therefore, we do not need to recompute the MST as when a node leaves the network and it only has one edge incident on it, the new MST is merely the original tree with the node and its incident edge removed.
-	\item Frank's go here
+	\item
+        According to the book, for a request there are two "receiver" MAC address in the frame:
+        DST address in the header that is 48 bits of 1 or Target address in the message
+        that is just 0. I'm going to assume you want the latter. \\
+
+        part a) \\
+        (i) request (ii) 1.2.3.4 (iii) 1.2.3.4's MAC address (iv) 1.2.3.10 (v) 0 \\
+        (i) response (ii) 1.2.3.10 (iii) 1.2.3.10's MAC address (iv) 1.2.3.4 (v) 1.2.3.4's MAC address \\
+
+        part b) \\
+        (i) request (ii) 1.2.3.4 (iii) 1.2.3.4's MAC address (iv) 1.2.1.1 (v) 0 \\
+        (i) response (ii) 1.2.1.1 (iii) 1.2.1.1's MAC address (iv) 1.2.3.4 (v) 1.2.3.4's MAC adress \\
+        (i) request (ii) 10.11.12.1 (iii) 10.11.12.1's MAC address (iv) 10.11.12.25 (v) 0 \\
+        (i) response (ii) 10.11.12.25 (iii) 10.11.12.25's MAC address (iv) 10.11.12.1 (v) 10.11.12.1's MAC address \\
+        (i) request (ii) 15.16.17.25 (iii) 15.16.17.25's MAC address (iv) 15.16.17.18 (v) 0 \\
+        (i) response (ii) 15.16.17.18 (iii) 15.16.17.18's MAC address (iv) 15.16.17.25 (v) 15.16.17.25's MAC address \\
+
 \end{enumerate}
 \end{document}
