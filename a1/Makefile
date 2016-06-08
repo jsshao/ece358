@@ -1,7 +1,7 @@
 all: addpeer removepeer addcontent removecontent lookupcontent
 
-addpeer: addpeer.cc
-	g++ -o addpeer addpeer.cc
+addpeer: myaddpeer.cc
+	g++ -o myaddpeer myaddpeer.cc
 
 removepeer: removepeer.cc
 	g++ -o removepeer removepeer.cc
@@ -16,4 +16,4 @@ lookupcontent: lookupcontent.cc
 	g++ -o lookupcontent lookupcontent.cc
 
 clean: 
-	$(RM) addpeer removepeer addcontent removecontent lookupcontent
+	$(RM) myaddpeer removepeer addcontent removecontent lookupcontent
