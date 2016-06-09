@@ -1,7 +1,7 @@
 all: myaddpeer removepeer addcontent removecontent lookupcontent
 
-myaddpeer: myaddpeer.cc
-	g++ -o myaddpeer myaddpeer.cc
+myaddpeer: myaddpeer.cc pickip.c
+	g++ -o myaddpeer myaddpeer.cc pickip.c
 
 removepeer: removepeer.cc
 	g++ -o removepeer removepeer.cc

@@ -26,13 +26,13 @@ int pickServerIPAddr(struct in_addr *srv_ip) {
 	if(i->ifa_addr == NULL) continue;
 	if(i->ifa_addr->sa_family == AF_INET) {
 	    memcpy(srv_ip, &(((struct sockaddr_in *)(i->ifa_addr))->sin_addr), sizeof(struct in_addr));
-	    printf("Pick server-ip ");
-	    printf("%s [y to accept]: ", inet_ntoa(*srv_ip));
-	    scanf("%c", &c);
-	    if(c == 'Y' || c == 'y') {
+	    //printf("Pick server-ip ");
+	    //printf("%s [y to accept]: ", inet_ntoa(*srv_ip));
+	    //scanf("%c", &c);
+	    //if(c == 'Y' || c == 'y') {
 		freeifaddrs(ifa);
 		return 0;
-	    }
+	    //}
 	}
     }
 
