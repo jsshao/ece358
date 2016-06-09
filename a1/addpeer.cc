@@ -37,6 +37,10 @@ class Peer {
             return socket;
         }
 
+        int getSockfd() {
+            return sockfd;
+        }
+
         long getLoad() {
             return load;
         }
@@ -97,7 +101,7 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
-        
+         
     }
 
     if (fork()) {
@@ -107,9 +111,47 @@ int main(int argc, char* argv[]) {
 
     // Handle requests
     for (;;) {
+        if (listen(peers[0].getSockfd(), 0) < 0) {
+            perror("listen"); 
+            return -1;
+        }
+
+        int connectedsock;
+        struct sockaddr_in client;
+        socklen_t alen = sizeof(struct sockaddr_in);
+        if ((connectedsock = accept(peers[0].getSockfd(), (struct sockaddr *)&client, &alen)) < 0) {
+            perror("accept"); 
+            return -1;
+        }
+
+        printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+
+	    size_t buflen = 128;
+	    char buf[buflen];
+	    ssize_t recvlen;
+	    if ((recvlen = recv(connectedsock, buf, buflen-1, 0)) < 0) {
+            perror("recv"); 
+            return -1;
+	    }
+
+	    buf[recvlen] = 0; // ensure null-terminated string
+	    printf("Child %d received the following %d-length string: %s\n",
+		    getpid(), (int)recvlen, buf);
+
+	    strcpy(buf, "bye");
+	    printf("Child %d sending %s\n", getpid(), buf);
+	    if(send(connectedsock, buf, strlen(buf), 0) < 0) {
+            perror("send"); 
+            return -1;
+	    }
+
+	    printf("Child %d shutting down...\n", getpid());
+	    if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+            perror("shutdown, child"); 
+            return -1;
+        }
+
         break;
     }
-
-    cout << "CHILD" << endl;
     return 0;
 }
