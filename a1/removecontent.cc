@@ -14,6 +14,8 @@
 
 /* Based on the code from your TA, Meng Yang */
 
+extern int mybind(int sockfd, struct sockaddr_in *addr);
+
 int main(int argc, char *argv[]) {
     if(argc != 4) {
         printf("Usage: %s server-ip server-port content\n", argv[0]);
@@ -41,7 +43,7 @@ int main(int argc, char *argv[]) {
     client.sin_family = AF_INET;
     client.sin_addr.s_addr = htonl(INADDR_ANY);
     client.sin_port = 0; // Let OS choose.
-    if(bind(sockfd, (struct sockaddr *)&client, sizeof(struct sockaddr_in)) < 0) {
+    if(mybind(sockfd, &client) < 0) {
         perror("could not bind socket"); 
         return -1;
     }
