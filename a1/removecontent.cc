@@ -12,8 +12,6 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 
-/* Based on the code from your TA, Meng Yang */
-
 extern int mybind(int sockfd, struct sockaddr_in *addr);
 
 int main(int argc, char *argv[]) {

@@ -77,13 +77,13 @@ Peer initialize() {
     memcpy(&(server.sin_addr), &srvip, sizeof(struct in_addr)); // From above
     server.sin_port = 0; // Allow OS to pick port
 
-    if(mybind(sockfd, &server) < 0) {
+    if (mybind(sockfd, &server) < 0) {
         perror("bind"); 
         exit(-1);
     }
 
     socklen_t alen = sizeof(struct sockaddr_in);
-    if(getsockname(sockfd, (struct sockaddr *)&server, &alen) < 0) {
+    if (getsockname(sockfd, (struct sockaddr *)&server, &alen) < 0) {
         perror("getsockname"); 
         exit(-1);
     }

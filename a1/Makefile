@@ -4,7 +4,7 @@ addpeer: addpeer.cc pickip.c
 	g++ -std=c++0x -o addpeer addpeer.cc pickip.c mybind.c
 
 removepeer: removepeer.cc
-	g++ -std=c++0x -o removepeer removepeer.cc
+	g++ -std=c++0x -o removepeer removepeer.cc mybind.c
 
 addcontent: addcontent.cc
 	g++ -std=c++0x -o addcontent addcontent.cc mybind.c
