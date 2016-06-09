@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
     // printf("Connection established with server.\n");
 
-    size_t buflen = 64;
+    size_t buflen = 256;
     char buf[buflen];
     buf[0] = 'a'; // add content
     strcpy((buf+1), argv[3]); // check for overflow?
