@@ -14,20 +14,25 @@
 #include <netinet/ip.h>
 #include <ifaddrs.h>
 #include <unistd.h>
-
+#include <functional>
+//#include <chrono>
 using namespace std;
+
+class Peer;
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
-void addcontent(int sockfd, char *buf);
-void removecontent(int sockfd, char *buf);
+void addcontent_f(int sockfd, char *buf, Peer &me);
+//void removecontent_f(int sockfd, char *buf);
+void addcontent(int sockfd, char *buf, vector<Peer> &peers);
+//void removecontent(int sockfd, char *buf, vector<Peer> &peers);
 
 class Peer {
     private:
         sockaddr_in socket;
         int sockfd;
         long load;
-        unordered_map<int, string> content; 
+        unordered_map<size_t, string> content; 
 
     public:
         Peer(sockaddr_in socket, int sockfd) {
@@ -48,11 +53,11 @@ class Peer {
             return load;
         }
 
-        string get(int key) {
+        string get(size_t key) {
             return content[key];
         }
 
-        void put(int key, string value) {
+        void put(size_t key, string value) {
             content[key] = value;
         }
 };
@@ -142,10 +147,10 @@ int main(int argc, char* argv[]) {
             getpid(), (int)recvlen, buf);
 
         switch(buf[0]) {
-            case '2':
-                addcontent(connectedsock, buf);
-            case '3':
-                removecontent(connectedsock, buf);
+            //case 2:
+                //addcontent_f(peers[0]);
+            //case 21:
+                //addcontent(connectedsock, buf, peers);
         }
 
 
@@ -162,13 +167,45 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void addcontent(int sockfd, char *buf) {
-    //strcpy(buf, "bye");
-    //printf("Child %d sending %s\n", getpid(), buf);
-    //if(send(connectedsock, buf, strlen(buf), 0) < 0) {
-        //perror("send"); 
-        //return -1;
+void addcontent_f(char *buf, Peer me) {
+    //auto a = std::chrono::system_clock::now();
+    //time_t b = std::chrono::system_clock::to_time_t(a);
+    //return static_cast<long>(b);
+    hash<string> str_hash;
+    size_t key = str_hash(buf);
+    me.put(key, buf);
+    //me.setLoad(me.getLoad()+1);
+}
+
+
+void addcontent(int sockfd, char *buf, vector<Peer> &peers) {
+    //long my_load = me.getLoad();
+    //bool exception = False;
+    //size_t selected_peer = 0;
+    //for( size_t i = 1; i<peers.size(); i++ ) {
+        //long load = peers[i].getLoad();
+        //if( load < my_load ) {
+            ////peers[i].setLoad(load+1);
+            //selected_peer = i;
+            ////send(peers)
+            //break;
+        //}
+        //if( load > my_load ) {
+            ////addcontent_f(buf, peers[0]);
+            //break;
+        //}
     //}
+
+
+    //for( size_t i = 1; i<peers.size(); i++ ) {
+        
+    //}
+
+
+    ////if(send(connectedsock, buf, strlen(buf), 0) < 0) {
+        ////perror("send"); 
+        ////return -1;
+    ////}
 }
-void removecontent(int sockfd, char *buf) {
-}
+//void removecontent(int sockfd, char *buf) {
+//}
