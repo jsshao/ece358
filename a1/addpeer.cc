@@ -19,6 +19,8 @@ using namespace std;
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
+void addcontent(int sockfd, char *buf);
+void removecontent(int sockfd, char *buf);
 
 class Peer {
     private:
@@ -75,7 +77,7 @@ Peer initialize() {
     memcpy(&(server.sin_addr), &srvip, sizeof(struct in_addr)); // From above
     server.sin_port = 0; // Allow OS to pick port
 
-    if(mybind(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
+    if(mybind(sockfd, &server) < 0) {
         perror("bind"); 
         exit(-1);
     }
@@ -89,6 +91,7 @@ Peer initialize() {
     cout << inet_ntoa(server.sin_addr) << " " << ntohs(server.sin_port) << endl;
     return Peer(server, sockfd);
 }
+
 
 int main(int argc, char* argv[]) {
     if (argc != 1 && argc != 3) {
@@ -127,27 +130,29 @@ int main(int argc, char* argv[]) {
 
         printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
-	    size_t buflen = 128;
-	    char buf[buflen];
-	    ssize_t recvlen;
-	    if ((recvlen = recv(connectedsock, buf, buflen-1, 0)) < 0) {
+        size_t buflen = 256;
+        char buf[buflen];
+        ssize_t recvlen;
+        if ((recvlen = recv(connectedsock, buf, buflen-1, 0)) < 0) {
             perror("recv"); 
             return -1;
-	    }
+        }
+        buf[recvlen] = 0; // ensure null-terminated string
+        printf("Child %d received the following %d-length string: %s\n",
+            getpid(), (int)recvlen, buf);
 
-	    buf[recvlen] = 0; // ensure null-terminated string
-	    printf("Child %d received the following %d-length string: %s\n",
-		    getpid(), (int)recvlen, buf);
+        switch(buf[0]) {
+            case '2':
+                addcontent(connectedsock, buf);
+            case '3':
+                removecontent(connectedsock, buf);
+        }
 
-	    strcpy(buf, "bye");
-	    printf("Child %d sending %s\n", getpid(), buf);
-	    if(send(connectedsock, buf, strlen(buf), 0) < 0) {
-            perror("send"); 
-            return -1;
-	    }
 
-	    printf("Child %d shutting down...\n", getpid());
-	    if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+
+
+        printf("Child %d shutting down...\n", getpid());
+        if(shutdown(connectedsock, SHUT_RDWR) < 0) {
             perror("shutdown, child"); 
             return -1;
         }
@@ -155,4 +160,15 @@ int main(int argc, char* argv[]) {
         break;
     }
     return 0;
+}
+
+void addcontent(int sockfd, char *buf) {
+    //strcpy(buf, "bye");
+    //printf("Child %d sending %s\n", getpid(), buf);
+    //if(send(connectedsock, buf, strlen(buf), 0) < 0) {
+        //perror("send"); 
+        //return -1;
+    //}
+}
+void removecontent(int sockfd, char *buf) {
 }
