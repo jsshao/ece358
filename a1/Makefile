@@ -1,6 +1,6 @@
-all: addpeer removepeer addcontent removecontent lookupcontent
+all: myaddpeer removepeer addcontent removecontent lookupcontent
 
-addpeer: myaddpeer.cc
+myaddpeer: myaddpeer.cc
 	g++ -o myaddpeer myaddpeer.cc
 
 removepeer: removepeer.cc
