@@ -18,6 +18,7 @@
 using namespace std;
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
+extern int mybind(int sockfd, struct sockaddr_in *addr);
 
 class Peer {
     private:
@@ -74,7 +75,7 @@ Peer initialize() {
     memcpy(&(server.sin_addr), &srvip, sizeof(struct in_addr)); // From above
     server.sin_port = 0; // Allow OS to pick port
 
-    if(bind(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
+    if(mybind(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
         perror("bind"); 
         exit(-1);
     }
