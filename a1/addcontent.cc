@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
+extern void sendcontent(int sockfd, char* buf);
 
 int main(int argc, char *argv[]) {
     if(argc != 4) {
@@ -61,32 +62,24 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // printf("Connection established with server.\n");
+     printf("Connection established with peer.\n");
 
-    size_t buflen = 256;
-    char buf[buflen];
-    buf[0] = 'a'; // add content
-    strcpy((buf+1), argv[3]); // check for overflow?
 
-    ssize_t sentlen;
-    if((sentlen = send(sockfd, buf, strlen(buf), 0)) < 0) {
-        perror("Failed to send"); 
-        return -1;
+    //type
+    char type = 2;
+    if(send(sockfd, &type, 1, 0) != 1) {
+        perror("Failed to send type");
     }
 
-    buf[sentlen] = 0;
-    // printf("Sent %s to %s %d\n", buf, inet_ntoa(server.sin_addr), ntohs(server.sin_port));
-    // Sleep a bit
-    // sleep(10);
+    printf("%s", argv[3]);
+    sendcontent(sockfd, argv[3]);
 
-    bzero(buf, buflen);
-    if(recv(sockfd, buf, buflen-1, 0) < 0) {
-        perror("recv"); 
+    if(recv(sockfd, &type, 1, 0) != 's') {
+        perror("failed to add content"); 
         return -1;
+    } else {
+        printf("success"); 
     }
-    printf("%s\n", buf);
-
-    printf("Received %s. Shutting down...\n", buf);
 
     if(shutdown(sockfd, SHUT_RDWR) < 0) {
         perror("Could not shut down connection"); 

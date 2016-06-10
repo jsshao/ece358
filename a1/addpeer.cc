@@ -22,30 +22,28 @@ class Peer;
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
+extern string recvcontent(int sockfd);
+extern void sendcontent(int sockfd, char* buf);
 int createPeerConnection();
-string recvcontent(int socket);
-void sendcontent(int socket, char* buf);
-void addcontent_f(int sockfd, char *buf, Peer &me);
-//void removecontent_f(int sockfd, char *buf);
-void addcontent(int sockfd, char *buf, vector<Peer> &peers);
-//void removecontent(int sockfd, char *buf, vector<Peer> &peers);
+void addcontent(int sockfd, Peer &me);
+void removecontent(int sockfd, Peer &me);
 
 class Peer {
     private:
-        sockaddr_in socket;
+        sockaddr_in socket_addr;
         int sockfd;
         long load;
         unordered_map<size_t, string> content; 
 
     public:
-        Peer(sockaddr_in socket, int sockfd) {
-            this->socket = socket;
+        Peer(sockaddr_in socket_addr, int sockfd) {
+            this->socket_addr = socket_addr;
             this->sockfd = sockfd;
             this->load = 0;
         }
 
-        sockaddr_in getSocket() {
-            return socket;
+        sockaddr_in getSocketId() {
+            return socket_addr;
         }
 
         int getSockfd() {
@@ -56,16 +54,17 @@ class Peer {
             return load;
         }
 
-        void setLoad(long newLoad) {
-            load = newLoad;
-        }
-
         string get(size_t key) {
             return content[key];
         }
 
         void put(size_t key, string value) {
             content[key] = value;
+            load++;
+        }
+        void del(size_t key) {
+            content.erase(key);
+            load--;
         }
 };
 
@@ -120,10 +119,10 @@ int main(int argc, char* argv[]) {
          
     }
 
-    if (fork()) {
-        // Parent just prints socket address and returns to user
-        return 0;
-    }
+    //if (fork()) {
+        //// Parent just prints socket address and returns to user
+        //return 0;
+    //}
 
     // Handle requests
     for (;;) {
@@ -142,43 +141,38 @@ int main(int argc, char* argv[]) {
 
         printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
-        size_t buflen = 256;
-        char buf[buflen];
+        /*****************************************
+         *
+         * change to recv only one char here,
+         * since tcp doesn't preserve message boundary
+         *
+         * ***************************************/
+
+        char type;
         ssize_t recvlen;
-        if ((recvlen = recv(connectedsock, buf, buflen-1, 0)) < 0) {
+        if ((recvlen = recv(connectedsock, &type, 1, 0)) < 0) {
             perror("recv"); 
             exit(1);
         }
-        buf[recvlen] = 0; // ensure null-terminated string
-        printf("Child %d received the following %d-length string: %s\n",
-            getpid(), (int)recvlen, buf);
 
-        switch(buf[0]) {
-            //case 2:
-                //addcontent_f(peers[0]);
-            //case 21:
-                //addcontent(connectedsock, buf, peers);
+        cout<<"Main Loop: message type :"<<int(type)<<endl;
+
+        switch(type) {
+            case 2:
+                addcontent(connectedsock, peers[0]);
+            //case 3:
+            //case 'a':
         }
 
         printf("Child %d shutting down...\n", getpid());
         if(shutdown(connectedsock, SHUT_RDWR) < 0) {
-            perror("shutdown, child"); 
+            perror("attempt at shuting down connection failed"); 
             exit(1);
         }
 
         break;
     }
     return 0;
-}
-
-void addcontent_f(char *buf, Peer me) {
-    //auto a = std::chrono::system_clock::now();
-    //time_t b = std::chrono::system_clock::to_time_t(a);
-    //return static_cast<long>(b);
-    hash<string> str_hash;
-    size_t key = str_hash(buf);
-    me.put(key, buf);
-    //me.setLoad(me.getLoad()+1);
 }
 
 int createPeerConnection(struct sockaddr_in server) {
@@ -216,74 +210,29 @@ int createPeerConnection(struct sockaddr_in server) {
     return sockfd;
 }
 
-void sendcontent(int socket, char* buf) {
-    ssize_t total = 0;
-    size_t len = strlen(buf);
-    size_t bytesleft = len;
-    ssize_t sent_len;
+void addcontent(int sockfd, Peer &me) {
+    cout<<"case 2"<<endl;
+    //auto a = std::chrono::system_clock::now();
+    //time_t b = std::chrono::system_clock::to_time_t(a);
+    hash<string> str_hash;
 
-    while(total < len) {
-        if((sent_len = send(socket, buf+total, bytesleft, 0)) < 0) {
-            perror("uhhh, it just randomly stopped sending");
-            break; 
-        }
-        total += sent_len;
-        bytesleft -= sent_len;
-    }
+    string value = recvcontent(sockfd);
+    size_t key = str_hash(value);
+
+    cout<<key<<value<<endl;
+
+    me.put(key, value);
 }
 
-string recvcontent(int socket, int desired) {
-    string s;
-    size_t buflen = 256;
-    char buf[buflen];
-    ssize_t recvlen;
-    ssize_t total;
-    while(total != desired) {
-        if ((recvlen = recv(socket, buf, buflen-1, 0)) < 0) {
-            perror("uhhh, I didn't receive right length"); 
-            exit(1);
-        }
-        total += recvlen;
-        buf[recvlen] = 0;
-        s += string(buf);
-    }
-    return s;
-}
+//void removecontent(int sockfd, Peer &me) {
+    //hash<string> str_hash;
 
-void addcontent(int sockfd, char *buf, vector<Peer> &peers) {
-    long my_load = peers[0].getLoad();
-    bool exception = false;
-    size_t selected_peer = 0;
-    for( size_t i = 1; i<peers.size(); i++ ) {
-        long load = peers[i].getLoad();
-        if( load < my_load ) {
-            peers[i].setLoad(load+1);
-            selected_peer = i;
-            //send(peers)
-            break;
-        }
-        if( load > my_load ) {
-            addcontent_f(buf, peers[0]);
-            break;
-        }
-    }
+    //uint32_t nwlen; //length in big endian
+    //if(recv(sockfd, &nwlen, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
+        //perror("could not receive length properly");
+        //exit(1);
+    //}
+    //size_t key = ntohl(nwlen);
 
-    for( size_t i = 1; i<peers.size(); i++ ) {
-        int sockfd = createPeerConnection(peers[i].getSocket());
-        size_t buflen = 256;
-        char buf[buflen];
-        buf[0] = 'a'; //
-
-        ssize_t sentlen;
-        if((sentlen = send(sockfd, buf, strlen(buf), 0)) < 0) {
-            perror("Failed to send"); 
-            exit(1);
-        }
-        if(shutdown(sockfd, SHUT_RDWR) < 0) {
-            perror("Could not shut down connection"); 
-            exit(1);
-        }
-    }
-}
-//void removecontent(int sockfd, char *buf) {
+    //me.del(key);
 //}
