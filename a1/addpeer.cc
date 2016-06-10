@@ -32,7 +32,7 @@ class Peer {
     private:
         sockaddr_in socket_addr;
         int sockfd;
-        long load;
+        int load;
         unordered_map<size_t, string> content; 
 
     public:
@@ -50,7 +50,7 @@ class Peer {
             return sockfd;
         }
 
-        long getLoad() {
+        int getLoad() {
             return load;
         }
 
@@ -236,3 +236,13 @@ void addcontent(int sockfd, Peer &me) {
 
     //me.del(key);
 //}
+
+void redistribute(vector<Peer> &peers) {
+    // Total load
+    int sum = 0;
+    for (auto &peer: peers) {
+        sum += peer.getLoad();
+    }
+
+
+}

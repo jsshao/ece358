@@ -61,11 +61,9 @@ int main(int argc, char* argv[]) {
     // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
 
     if (connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
-        printf("Error: no such peer"); 
-        perror("");
-        return -1;
-    }
-
+        printf("Error: no such peer\n"); 
+        return -1; 
+    } 
     // printf("Connection established with server.\n");
 
     // RemovePeer message
@@ -82,19 +80,20 @@ int main(int argc, char* argv[]) {
     //printf("Sent %s to %s %d\n",
     //    buf, inet_ntoa(server.sin_addr), ntohs(server.sin_port));
 
-    // Sleep a bit
-    sleep(10);
-
-    /*
+    struct timeval tv;
+    tv.tv_sec = 10;  /* 30 Secs Timeout */
+    tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
     bzero(buf, buflen);
     if (recv(sockfd, buf, buflen-1, 0) < 0) {
         perror("recv"); 
         return -1;
     }
-    if (buf[0] == 'f') {
-        printf("Error: no such peer"); 
+
+    if (buf[0] != 's') {
+        printf("Error: no such peer\n");
+        return -1;
     }
-    */
 
     if (shutdown(sockfd, SHUT_RDWR) < 0) {
         perror("Could not shut down connection"); 
