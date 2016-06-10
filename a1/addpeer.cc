@@ -22,6 +22,9 @@ class Peer;
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
+int createPeerConnection();
+string recvcontent(int socket);
+void sendcontent(int socket, char* buf);
 void addcontent_f(int sockfd, char *buf, Peer &me);
 //void removecontent_f(int sockfd, char *buf);
 void addcontent(int sockfd, char *buf, vector<Peer> &peers);
@@ -51,6 +54,10 @@ class Peer {
 
         long getLoad() {
             return load;
+        }
+
+        void setLoad(long newLoad) {
+            load = newLoad;
         }
 
         string get(size_t key) {
@@ -101,7 +108,7 @@ Peer initialize() {
 int main(int argc, char* argv[]) {
     if (argc != 1 && argc != 3) {
         cerr << "Invalid Input" << endl;
-        return -1;
+        exit(1);
     }
 
     // Initialize current peer
@@ -122,7 +129,7 @@ int main(int argc, char* argv[]) {
     for (;;) {
         if (listen(peers[0].getSockfd(), 0) < 0) {
             perror("listen"); 
-            return -1;
+            exit(1);
         }
 
         int connectedsock;
@@ -130,7 +137,7 @@ int main(int argc, char* argv[]) {
         socklen_t alen = sizeof(struct sockaddr_in);
         if ((connectedsock = accept(peers[0].getSockfd(), (struct sockaddr *)&client, &alen)) < 0) {
             perror("accept"); 
-            return -1;
+            exit(1);
         }
 
         printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
@@ -140,7 +147,7 @@ int main(int argc, char* argv[]) {
         ssize_t recvlen;
         if ((recvlen = recv(connectedsock, buf, buflen-1, 0)) < 0) {
             perror("recv"); 
-            return -1;
+            exit(1);
         }
         buf[recvlen] = 0; // ensure null-terminated string
         printf("Child %d received the following %d-length string: %s\n",
@@ -153,13 +160,10 @@ int main(int argc, char* argv[]) {
                 //addcontent(connectedsock, buf, peers);
         }
 
-
-
-
         printf("Child %d shutting down...\n", getpid());
         if(shutdown(connectedsock, SHUT_RDWR) < 0) {
             perror("shutdown, child"); 
-            return -1;
+            exit(1);
         }
 
         break;
@@ -177,35 +181,109 @@ void addcontent_f(char *buf, Peer me) {
     //me.setLoad(me.getLoad()+1);
 }
 
+int createPeerConnection(struct sockaddr_in server) {
+    // create and bind a socket
+    int sockfd = -1;
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("could not create socket"); 
+        exit(1);
+    }
+    struct sockaddr_in client;
+    bzero(&client, sizeof(struct sockaddr_in));
+    client.sin_family = AF_INET;
+    client.sin_addr.s_addr = htonl(INADDR_ANY);
+    client.sin_port = 0; // Let OS choose.
+    if(mybind(sockfd, &client) < 0) {
+        perror("could not bind socket"); 
+        exit(1);
+    }
+    // fill client with actual socket address
+    socklen_t alen = sizeof(struct sockaddr_in);
+    if(getsockname(sockfd, (struct sockaddr *)&client, &alen) < 0) {
+        perror("getsockname"); 
+        exit(1);
+    }
+
+    //printf("client associated with %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+    // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
+
+    if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
+        printf("Error: no such peer\n"); 
+        perror("");
+        exit(1);
+    }
+
+    return sockfd;
+}
+
+void sendcontent(int socket, char* buf) {
+    ssize_t total = 0;
+    size_t len = strlen(buf);
+    size_t bytesleft = len;
+    ssize_t sent_len;
+
+    while(total < len) {
+        if((sent_len = send(socket, buf+total, bytesleft, 0)) < 0) {
+            perror("uhhh, it just randomly stopped sending");
+            break; 
+        }
+        total += sent_len;
+        bytesleft -= sent_len;
+    }
+}
+
+string recvcontent(int socket, int desired) {
+    string s;
+    size_t buflen = 256;
+    char buf[buflen];
+    ssize_t recvlen;
+    ssize_t total;
+    while(total != desired) {
+        if ((recvlen = recv(socket, buf, buflen-1, 0)) < 0) {
+            perror("uhhh, I didn't receive right length"); 
+            exit(1);
+        }
+        total += recvlen;
+        buf[recvlen] = 0;
+        s += string(buf);
+    }
+    return s;
+}
 
 void addcontent(int sockfd, char *buf, vector<Peer> &peers) {
-    //long my_load = me.getLoad();
-    //bool exception = False;
-    //size_t selected_peer = 0;
-    //for( size_t i = 1; i<peers.size(); i++ ) {
-        //long load = peers[i].getLoad();
-        //if( load < my_load ) {
-            ////peers[i].setLoad(load+1);
-            //selected_peer = i;
-            ////send(peers)
-            //break;
-        //}
-        //if( load > my_load ) {
-            ////addcontent_f(buf, peers[0]);
-            //break;
-        //}
-    //}
+    long my_load = peers[0].getLoad();
+    bool exception = false;
+    size_t selected_peer = 0;
+    for( size_t i = 1; i<peers.size(); i++ ) {
+        long load = peers[i].getLoad();
+        if( load < my_load ) {
+            peers[i].setLoad(load+1);
+            selected_peer = i;
+            //send(peers)
+            break;
+        }
+        if( load > my_load ) {
+            addcontent_f(buf, peers[0]);
+            break;
+        }
+    }
 
+    for( size_t i = 1; i<peers.size(); i++ ) {
+        int sockfd = createPeerConnection(peers[i].getSocket());
+        size_t buflen = 256;
+        char buf[buflen];
+        buf[0] = 'a'; //
 
-    //for( size_t i = 1; i<peers.size(); i++ ) {
-        
-    //}
-
-
-    ////if(send(connectedsock, buf, strlen(buf), 0) < 0) {
-        ////perror("send"); 
-        ////return -1;
-    ////}
+        ssize_t sentlen;
+        if((sentlen = send(sockfd, buf, strlen(buf), 0)) < 0) {
+            perror("Failed to send"); 
+            exit(1);
+        }
+        if(shutdown(sockfd, SHUT_RDWR) < 0) {
+            perror("Could not shut down connection"); 
+            exit(1);
+        }
+    }
 }
 //void removecontent(int sockfd, char *buf) {
 //}
