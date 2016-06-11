@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     //    buf, inet_ntoa(server.sin_addr), ntohs(server.sin_port));
 
     struct timeval tv;
-    tv.tv_sec = 10;  /* 30 Secs Timeout */
+    tv.tv_sec = 10;  /* 10 Secs Timeout */
     tv.tv_usec = 0;  // Not init'ing this can cause strange errors
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
     bzero(buf, buflen);
@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    if (buf[0] != 's') {
+    if (buf[0] != 'y') {
         printf("Error: no such peer\n");
         return -1;
     }

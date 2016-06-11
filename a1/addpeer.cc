@@ -19,7 +19,10 @@
 #include "constants.h"
 using namespace std;
 
+#define MSG_REMOVE 49
+
 class Peer;
+
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
@@ -29,6 +32,7 @@ extern void sendcontent(int sockfd, const char* buf);
 void redistribute(vector<Peer> &peers);
 
 int createPeerConnection(struct sockaddr_in server);
+void removePeer(int sockfd);
 void addcontent(int sockfd, Peer &me);              // add content naively to self
 
 void killcontent(int sockfd, size_t key, Peer &me); // actually removing content
@@ -134,6 +138,8 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
+        // TBD
+        cout << argv[2] << argv[1] << endl;
     }
 
     //if (fork()) {
@@ -174,6 +180,9 @@ int main(int argc, char* argv[]) {
         cout<<"Main Loop: message type :"<<int(type)<<endl;
 
         switch(type) {
+            case MSG_REMOVE:
+                removePeer(connectedsock);
+                goto REMOVE_PEER;
             case ADD: //smart, redistribute
                 addcontent(connectedsock, peers[0]);
                 redistribute(peers);
@@ -193,13 +202,15 @@ int main(int argc, char* argv[]) {
                 lookupcontent_f(connectedsock, peers[0]);
                 break;
         }
-
-        //printf("Child %d shutting down...\n", getpid());
-        //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
-            //perror("attempt at shuting down connection failed"); 
-            //exit(1);
-        //}
     }
+
+    REMOVE_PEER:
+
+    //printf("Child %d shutting down...\n", getpid());
+    //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+        //perror("attempt at shuting down connection failed"); 
+        //exit(1);
+    //}
     return 0;
 }
 
@@ -238,6 +249,17 @@ int createPeerConnection(struct sockaddr_in server) {
     return sockfd;
 }
 
+void removePeer(int sockfd) {
+    char success = 'y';
+    // NEED TO REDISTRIBUTE HERE
+    //
+    if (send(sockfd, &success, 1, 0) < 0) {
+        perror("could not send remove peer confirmation"); 
+        exit(1);
+    }
+    return;
+}
+
 void addcontent(int sockfd, Peer &me) {
 
     hash<string> str_hash;
@@ -265,6 +287,7 @@ void killcontent(int sockfd, size_t key, Peer &me) {
         exit(1);
     }
 }
+
 void removecontent_f(int sockfd, Peer &me) {
     size_t key;
     if(recv(sockfd, &key, sizeof(key), 0) < 0) {
@@ -394,7 +417,7 @@ void lookupcontent_f(int sockfd, Peer &me) {
 void redistribute(vector<Peer> &peers) {
     // Total load
     int sum = 0;
-    for (int i = 0; i < peers.size(); i++) {
+    for (size_t i = 0; i < peers.size(); i++) {
         sum += peers[i].getLoad();
     }
 }
