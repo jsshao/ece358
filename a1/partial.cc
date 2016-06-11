@@ -12,6 +12,7 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <string>
+#include <iostream>
 using namespace std;
 
 
@@ -32,6 +33,7 @@ void sendcontent(int sockfd, char* buf) {
     }
 
     while(total < len) {
+        cout<<"sending"<<endl;
         if((sent = send(sockfd, buf+total, bytesleft, 0)) < 0) {
             perror("uhhh, it just randomly stopped sending");
             exit(1);
@@ -49,7 +51,7 @@ string recvcontent(int sockfd) {
     size_t buflen = 256;
     char buf[buflen];
     ssize_t recvlen;
-    ssize_t total;
+    ssize_t total = 0;
 
     uint32_t nwlen; //length in big endian
     if(recv(sockfd, &nwlen, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
@@ -58,13 +60,17 @@ string recvcontent(int sockfd) {
     }
     ssize_t desired = ntohl(nwlen);
     while(total != desired) {
+        cout<<"desired"<<desired<<endl;
+        cout<<"receiving"<<endl;
         if ((recvlen = recv(sockfd, buf, buflen-1, 0)) < 0) {
             perror("uhhh, I didn't receive right length"); 
             exit(1);
         }
         total += recvlen;
+        cout<<"received: "<<recvlen<<endl<<"still has: "<<total<<endl;
         buf[recvlen] = 0;
         s += string(buf);
     }
+    cout<<"s: "<<s<<endl;
     return s;
 }

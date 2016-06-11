@@ -24,9 +24,12 @@ extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
 extern string recvcontent(int sockfd);
 extern void sendcontent(int sockfd, char* buf);
-int createPeerConnection();
-void addcontent(int sockfd, Peer &me);
-void removecontent(int sockfd, Peer &me);
+
+int createPeerConnection(struct sockaddr_in server);
+void addcontent(int sockfd, Peer &me);              // add content naively to self
+void killcontent(int sockfd, size_t key, Peer &me); // actually removing content
+void removecontent(int sockfd, vector<Peer> &peers);           // remove content on request by a client
+void removecontent_f(int sockfd, Peer &me);         // remove content on request by a peer
 
 class Peer {
     private:
@@ -42,7 +45,7 @@ class Peer {
             this->load = 0;
         }
 
-        sockaddr_in getSocketId() {
+        sockaddr_in getSocketAddr() {
             return socket_addr;
         }
 
@@ -62,9 +65,14 @@ class Peer {
             content[key] = value;
             load++;
         }
+
         void del(size_t key) {
             content.erase(key);
             load--;
+        }
+
+        bool has(size_t key) {
+            return (content.count(key) > 0); 
         }
 };
 
@@ -116,7 +124,6 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
-         
     }
 
     //if (fork()) {
@@ -160,17 +167,21 @@ int main(int argc, char* argv[]) {
         switch(type) {
             case 2:
                 addcontent(connectedsock, peers[0]);
+                break;
+            case 3:
+                removecontent(connectedsock, peers);
+                break;
+            case 31:
+                removecontent_f(connectedsock, peers[0]); 
             //case 3:
             //case 'a':
         }
 
-        printf("Child %d shutting down...\n", getpid());
-        if(shutdown(connectedsock, SHUT_RDWR) < 0) {
-            perror("attempt at shuting down connection failed"); 
-            exit(1);
-        }
-
-        break;
+        //printf("Child %d shutting down...\n", getpid());
+        //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+            //perror("attempt at shuting down connection failed"); 
+            //exit(1);
+        //}
     }
     return 0;
 }
@@ -211,7 +222,6 @@ int createPeerConnection(struct sockaddr_in server) {
 }
 
 void addcontent(int sockfd, Peer &me) {
-    cout<<"case 2"<<endl;
     //auto a = std::chrono::system_clock::now();
     //time_t b = std::chrono::system_clock::to_time_t(a);
     hash<string> str_hash;
@@ -219,23 +229,87 @@ void addcontent(int sockfd, Peer &me) {
     string value = recvcontent(sockfd);
     size_t key = str_hash(value);
 
-    cout<<key<<value<<endl;
-
     me.put(key, value);
+
+    char success = 'y';
+    if( send(sockfd, &success, 1, 0) < 0 ) {
+        perror("could not send add content success");
+        exit(1);
+    }
 }
 
-//void removecontent(int sockfd, Peer &me) {
-    //hash<string> str_hash;
+void killcontent(int sockfd, size_t key, Peer &me) {
+    char success = 'y';
+    if(me.has(key)) {
+        success = 1;
+        me.del(key);
+    }
+    if( send(sockfd, &success, 1, 0) < 0 ) {
+        perror("could not send force remove content confirmation"); 
+        exit(1);
+    }
+}
+void removecontent_f(int sockfd, Peer &me) {
+    size_t key;
+    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+        perror("could not receive key"); 
+        exit(1);
+    }
+    killcontent(sockfd, key, me);
+}
 
-    //uint32_t nwlen; //length in big endian
-    //if(recv(sockfd, &nwlen, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
-        //perror("could not receive length properly");
-        //exit(1);
-    //}
-    //size_t key = ntohl(nwlen);
+void removecontent(int sockfd, vector<Peer> &peers) {
+    size_t key;
+    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+        perror("could not receive key"); 
+        exit(1);
+    }
+    if(peers[0].has(key)) {
+        killcontent(sockfd, key, peers[0]);
+        return;
+    }
 
-    //me.del(key);
-//}
+    for(size_t i=0; i<peers.size(); i++) {
+        char type = 31;
+        if( send(sockfd, &type, 1, 0) < 0 ) {
+            perror("could not send kill content request from peer");
+            exit(1);
+        }
+
+        int sockfd = -1;
+        if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            perror("could not create socket"); 
+            exit(1);
+        }
+
+        char success;
+        int peerfd = createPeerConnection(peers[i].getSocketAddr());
+
+        if( recv(peerfd, &success, 1, 0) < 0 ) {
+            perror("could not get peer force delete confirmation"); 
+            exit(1);
+        }
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+
+        if(success == 'y') {
+            if(send(sockfd, &success, 1, 0) < 0) {
+                perror("could not send client remove content confirmation"); 
+                exit(1);
+            }
+            return;
+        }
+    }
+
+    char success = 'n';
+    if(send(sockfd, &success, 1, 0) < 0) {
+        perror("could not send client remove content confirmation"); 
+        exit(1);
+    }
+}
 
 void redistribute(vector<Peer> &peers) {
     // Total load

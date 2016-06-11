@@ -74,9 +74,12 @@ int main(int argc, char *argv[]) {
     printf("%s", argv[3]);
     sendcontent(sockfd, argv[3]);
 
-    if(recv(sockfd, &type, 1, 0) != 's') {
+    if(recv(sockfd, &type, 1, 0) < 0) {
         perror("failed to add content"); 
         return -1;
+    }
+    if(type != 'y'){
+        printf("failed");
     } else {
         printf("success"); 
     }

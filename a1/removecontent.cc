@@ -11,8 +11,11 @@
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <unistd.h>
+#include <sstream>
+using namespace std;
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
+extern void sendcontent(int sockfd, char* buf);
 
 int main(int argc, char *argv[]) {
     if(argc != 4) {
@@ -63,35 +66,34 @@ int main(int argc, char *argv[]) {
 
     // printf("Connection established with server.\n");
 
-    size_t buflen = 256;
-    char buf[buflen];
-    strcpy(buf, argv[3]); // check for overflow?
 
-    ssize_t sentlen;
-    if((sentlen = send(sockfd, buf, strlen(buf), 0)) < 0) {
-        perror("Failed to send"); 
+    //type
+    char type = 3;
+    if(send(sockfd, &type, 1, 0) != 1) {
+        perror("Failed to send type");
+    }
+
+    printf("%s", argv[3]);
+    stringstream sstream(argv[3]);
+    size_t key;
+    sstream>>key;
+    if(send(sockfd, &key, sizeof(key), 0) != sizeof(key)) {
+        perror("could not send key");
+        exit(1);
+    }
+
+    if(recv(sockfd, &type, 1, 0) < 0) {
+        perror("failed to remove content"); 
         return -1;
     }
 
-    buf[sentlen] = 0;
-    printf("Sent %s to %s %d\n",
-        buf, inet_ntoa(server.sin_addr), ntohs(server.sin_port));
-
-    // Sleep a bit
-    sleep(10);
-
-    bzero(buf, buflen);
-    if(recv(sockfd, buf, buflen-1, 0) < 0) {
-        perror("recv"); return -1;
-    }
-    if(buf[0] == 'f') {
-        printf("Error: no such content"); 
+    if(type != 'y'){
+        printf("Error: no such content");
     }
 
     if(shutdown(sockfd, SHUT_RDWR) < 0) {
         perror("Could not shut down connection"); 
         return -1;
     }
-
     return 0;
 }
