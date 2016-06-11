@@ -18,22 +18,24 @@ int pickServerIPAddr(struct in_addr *srv_ip) {
 
     struct ifaddrs *ifa;
     if(getifaddrs(&ifa) < 0) {
-	perror("getifaddrs"); exit(-1);
+        perror("getifaddrs"); exit(-1);
     }
 
     char c;
     for(struct ifaddrs *i = ifa; i != NULL; i = i->ifa_next) {
-	if(i->ifa_addr == NULL) continue;
-	if(i->ifa_addr->sa_family == AF_INET) {
-	    memcpy(srv_ip, &(((struct sockaddr_in *)(i->ifa_addr))->sin_addr), sizeof(struct in_addr));
-	    //printf("Pick server-ip ");
-	    //printf("%s [y to accept]: ", inet_ntoa(*srv_ip));
-	    //scanf("%c", &c);
-	    //if(c == 'Y' || c == 'y') {
-		freeifaddrs(ifa);
-		return 0;
-	    //}
-	}
+        if(i->ifa_addr == NULL) continue;
+        if(i->ifa_addr->sa_family == AF_INET) {
+            if (strcmp(inet_ntoa(((struct sockaddr_in *)(i->ifa_addr))->sin_addr), "127.0.0.1") != 0) {
+                memcpy(srv_ip, &(((struct sockaddr_in *)(i->ifa_addr))->sin_addr), sizeof(struct in_addr));
+                //printf("Pick server-ip ");
+                //printf("%s [y to accept]: ", inet_ntoa(*srv_ip));
+                //scanf("%c", &c);
+                //if(c == 'Y' || c == 'y') {
+                freeifaddrs(ifa);
+                return 0;
+                //}
+            }
+        }
     }
 
     /* Pick all IPs */
