@@ -394,9 +394,7 @@ void lookupcontent_f(int sockfd, Peer &me) {
 void redistribute(vector<Peer> &peers) {
     // Total load
     int sum = 0;
-    for (auto &peer: peers) {
-        sum += peer.getLoad();
+    for (int i = 0; i < peers.size(); i++) {
+        sum += peers[i].getLoad();
     }
-
-
 }
