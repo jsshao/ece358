@@ -27,7 +27,7 @@ extern void sendcontent(int sockfd, char* buf);
 
 int createPeerConnection(struct sockaddr_in server);
 void addcontent(int sockfd, Peer &me);              // add content naively to self
-void killcontent(int sockfd, size_t key, Peer &me); // actually removing content
+void killcontent(int sockfd, ssize_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);           // remove content on request by a client
 void removecontent_f(int sockfd, Peer &me);         // remove content on request by a peer
 
@@ -36,7 +36,7 @@ class Peer {
         sockaddr_in socket_addr;
         int sockfd;
         int load;
-        unordered_map<size_t, string> content; 
+        unordered_map<ssize_t, string> content; 
 
     public:
         Peer(sockaddr_in socket_addr, int sockfd) {
@@ -57,21 +57,21 @@ class Peer {
             return load;
         }
 
-        string get(size_t key) {
+        string get(ssize_t key) {
             return content[key];
         }
 
-        void put(size_t key, string value) {
+        void put(ssize_t key, string value) {
             content[key] = value;
             load++;
         }
 
-        void del(size_t key) {
+        void del(ssize_t key) {
             content.erase(key);
             load--;
         }
 
-        bool has(size_t key) {
+        bool has(ssize_t key) {
             return (content.count(key) > 0); 
         }
 };
@@ -227,22 +227,22 @@ void addcontent(int sockfd, Peer &me) {
     hash<string> str_hash;
 
     string value = recvcontent(sockfd);
-    size_t key = str_hash(value);
+    ssize_t key = ssize_t(str_hash(value));
 
     me.put(key, value);
 
-    char success = 'y';
-    if( send(sockfd, &success, 1, 0) < 0 ) {
+    if( send(sockfd, &key, sizeof(key), 0) < 0 ) {
         perror("could not send add content success");
         exit(1);
     }
 }
 
-void killcontent(int sockfd, size_t key, Peer &me) {
-    char success = 'y';
+void killcontent(int sockfd, ssize_t key, Peer &me) {
+    char success = 'n';
     if(me.has(key)) {
-        success = 1;
+        success = 'y';
         me.del(key);
+        cout<<"content killed"<<endl;
     }
     if( send(sockfd, &success, 1, 0) < 0 ) {
         perror("could not send force remove content confirmation"); 
@@ -250,7 +250,7 @@ void killcontent(int sockfd, size_t key, Peer &me) {
     }
 }
 void removecontent_f(int sockfd, Peer &me) {
-    size_t key;
+    ssize_t key;
     if(recv(sockfd, &key, sizeof(key), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
@@ -259,7 +259,7 @@ void removecontent_f(int sockfd, Peer &me) {
 }
 
 void removecontent(int sockfd, vector<Peer> &peers) {
-    size_t key;
+    ssize_t key;
     if(recv(sockfd, &key, sizeof(key), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
@@ -271,17 +271,6 @@ void removecontent(int sockfd, vector<Peer> &peers) {
 
     for(size_t i=0; i<peers.size(); i++) {
         char type = 31;
-        if( send(sockfd, &type, 1, 0) < 0 ) {
-            perror("could not send kill content request from peer");
-            exit(1);
-        }
-
-        int sockfd = -1;
-        if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            perror("could not create socket"); 
-            exit(1);
-        }
-
         char success;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
 

@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <unistd.h>
+#include <iostream>
+using namespace std;
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
 extern void sendcontent(int sockfd, char* buf);
@@ -74,15 +76,12 @@ int main(int argc, char *argv[]) {
     printf("%s", argv[3]);
     sendcontent(sockfd, argv[3]);
 
-    if(recv(sockfd, &type, 1, 0) < 0) {
-        perror("failed to add content"); 
+    ssize_t key;
+    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+        perror("recieve key"); 
         return -1;
     }
-    if(type != 'y'){
-        printf("failed");
-    } else {
-        printf("success"); 
-    }
+    cout<<key<<endl;
 
     if(shutdown(sockfd, SHUT_RDWR) < 0) {
         perror("Could not shut down connection"); 

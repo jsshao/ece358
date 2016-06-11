@@ -12,6 +12,7 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <sstream>
+#include <iostream>
 using namespace std;
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
@@ -75,7 +76,8 @@ int main(int argc, char *argv[]) {
 
     printf("%s", argv[3]);
     stringstream sstream(argv[3]);
-    size_t key;
+
+    ssize_t key;
     sstream>>key;
     if(send(sockfd, &key, sizeof(key), 0) != sizeof(key)) {
         perror("could not send key");
