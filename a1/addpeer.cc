@@ -16,9 +16,13 @@
 #include <unistd.h>
 #include <functional>
 //#include <chrono>
+
+#define MSG_REMOVE 49
+
 using namespace std;
 
 class Peer;
+
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
@@ -26,6 +30,7 @@ extern string recvcontent(int sockfd);
 extern void sendcontent(int sockfd, char* buf);
 
 int createPeerConnection(struct sockaddr_in server);
+void removePeer(int sockfd);
 void addcontent(int sockfd, Peer &me);              // add content naively to self
 void killcontent(int sockfd, ssize_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);           // remove content on request by a client
@@ -124,6 +129,8 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
+        // TBD
+        cout << argv[2] << argv[1] << endl;
     }
 
     //if (fork()) {
@@ -165,6 +172,9 @@ int main(int argc, char* argv[]) {
         cout<<"Main Loop: message type :"<<int(type)<<endl;
 
         switch(type) {
+            case MSG_REMOVE:
+                removePeer(connectedsock);
+                goto REMOVE_PEER;
             case 2:
                 addcontent(connectedsock, peers[0]);
                 break;
@@ -176,13 +186,15 @@ int main(int argc, char* argv[]) {
             //case 3:
             //case 'a':
         }
-
-        //printf("Child %d shutting down...\n", getpid());
-        //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
-            //perror("attempt at shuting down connection failed"); 
-            //exit(1);
-        //}
     }
+
+    REMOVE_PEER:
+
+    //printf("Child %d shutting down...\n", getpid());
+    //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+        //perror("attempt at shuting down connection failed"); 
+        //exit(1);
+    //}
     return 0;
 }
 
@@ -221,6 +233,17 @@ int createPeerConnection(struct sockaddr_in server) {
     return sockfd;
 }
 
+void removePeer(int sockfd) {
+    char success = 'y';
+    // NEED TO REDISTRIBUTE HERE
+    //
+    if (send(sockfd, &success, 1, 0) < 0) {
+        perror("could not send remove peer confirmation"); 
+        exit(1);
+    }
+    return;
+}
+
 void addcontent(int sockfd, Peer &me) {
     //auto a = std::chrono::system_clock::now();
     //time_t b = std::chrono::system_clock::to_time_t(a);
@@ -249,6 +272,7 @@ void killcontent(int sockfd, ssize_t key, Peer &me) {
         exit(1);
     }
 }
+
 void removecontent_f(int sockfd, Peer &me) {
     ssize_t key;
     if(recv(sockfd, &key, sizeof(key), 0) < 0) {
@@ -303,7 +327,7 @@ void removecontent(int sockfd, vector<Peer> &peers) {
 void redistribute(vector<Peer> &peers) {
     // Total load
     int sum = 0;
-    for (int i = 0; i < peers.size(); i++) {
+    for (size_t i = 0; i < peers.size(); i++) {
         sum += peers[i].getLoad();
     }
 }
