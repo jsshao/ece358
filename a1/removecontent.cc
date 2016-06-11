@@ -13,10 +13,11 @@
 #include <unistd.h>
 #include <sstream>
 #include <iostream>
+#include "constants.h"
 using namespace std;
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
-extern void sendcontent(int sockfd, char* buf);
+extern void sendcontent(int sockfd, const char* buf);
 
 int main(int argc, char *argv[]) {
     if(argc != 4) {
@@ -61,36 +62,33 @@ int main(int argc, char *argv[]) {
 
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
         printf("Error: no such peer"); 
-        perror("");
         return -1;
     }
 
     // printf("Connection established with server.\n");
 
 
-    //type
-    char type = 3;
+    char type = REMOVE;
     if(send(sockfd, &type, 1, 0) != 1) {
         perror("Failed to send type");
     }
 
-    printf("%s", argv[3]);
     stringstream sstream(argv[3]);
-
-    ssize_t key;
+    size_t key;
     sstream>>key;
     if(send(sockfd, &key, sizeof(key), 0) != sizeof(key)) {
         perror("could not send key");
         exit(1);
     }
 
-    if(recv(sockfd, &type, 1, 0) < 0) {
+    char success;
+    if(recv(sockfd, &success, 1, 0) < 0) {
         perror("failed to remove content"); 
         return -1;
     }
 
-    if(type != 'y'){
-        printf("Error: no such content");
+    if(success != SUCCESS){
+        cout<<"Error: no such content"<<endl;
     }
 
     if(shutdown(sockfd, SHUT_RDWR) < 0) {

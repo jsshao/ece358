@@ -12,10 +12,11 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <iostream>
+#include "constants.h"
 using namespace std;
 
 extern int mybind(int sockfd, struct sockaddr_in *addr);
-extern void sendcontent(int sockfd, char* buf);
+extern void sendcontent(int sockfd, const char* buf);
 
 int main(int argc, char *argv[]) {
     if(argc != 4) {
@@ -60,7 +61,6 @@ int main(int argc, char *argv[]) {
 
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
         printf("Error: no such peer\n"); 
-        perror("");
         return -1;
     }
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
 
     //type
-    char type = 2;
+    char type = ADD;
     if(send(sockfd, &type, 1, 0) != 1) {
         perror("Failed to send type");
     }
@@ -76,9 +76,9 @@ int main(int argc, char *argv[]) {
     printf("%s", argv[3]);
     sendcontent(sockfd, argv[3]);
 
-    ssize_t key;
+    size_t key;
     if(recv(sockfd, &key, sizeof(key), 0) < 0) {
-        perror("recieve key"); 
+        perror("client recieve key"); 
         return -1;
     }
     cout<<key<<endl;

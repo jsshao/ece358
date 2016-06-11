@@ -17,9 +17,9 @@ using namespace std;
 
 
 // send content, assuming other side already
-// knows type. will send 4 bytes of length
+// knows type. will send length
 // followed by content
-void sendcontent(int sockfd, char* buf) {
+void sendcontent(int sockfd, const char* buf) {
 
     size_t len = strlen(buf);
     size_t bytesleft = len;
@@ -44,7 +44,7 @@ void sendcontent(int sockfd, char* buf) {
 }
 
 // receive content, assuming I already
-// knows type. will receive 4 bytes of length
+// knows type. will receive length
 // followed by content
 string recvcontent(int sockfd) {
     string s;
