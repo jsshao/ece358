@@ -73,14 +73,14 @@ int main(int argc, char *argv[]) {
         perror("Failed to send type");
     }
 
-    printf("%s", argv[3]);
     sendcontent(sockfd, argv[3]);
 
-    size_t key;
-    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+    uint32_t nkey;
+    if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
         perror("client recieve key"); 
         return -1;
     }
+    uint32_t key = ntohl(nkey);
     cout<<key<<endl;
 
     if(shutdown(sockfd, SHUT_RDWR) < 0) {

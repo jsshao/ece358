@@ -76,9 +76,10 @@ int main(int argc, char *argv[]) {
     }
 
     stringstream sstream(argv[3]);
-    size_t key;
+    uint32_t key;
     sstream>>key;
-    if(send(sockfd, &key, sizeof(key), 0) != sizeof(key)) {
+    uint32_t nkey = htonl(key);
+    if(send(sockfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
         perror("could not send key");
         exit(1);
     }

@@ -43,11 +43,11 @@ void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to 
 void removePeer(int sockfd);
 void addcontent(int sockfd, Peer &me);              // add content naively to self
 
-void killcontent(int sockfd, size_t key, Peer &me); // actually removing content
+void killcontent(int sockfd, uint32_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);// remove content on request by a client
 void removecontent_f(int sockfd, Peer &me);         // remove content on request by a peer
 
-void checkoutcontent(int sockfd, size_t key, Peer &me); // actually looking up content
+void checkoutcontent(int sockfd, uint32_t key, Peer &me); // actually looking up content
 void lookupcontent(int sockfd, vector<Peer> &peers);// lookup content on request by a client
 void lookupcontent_f(int sockfd, Peer &me);         // remove content on request by a peer
 
@@ -57,7 +57,7 @@ class Peer {
         sockaddr_in socket_addr;
         int sockfd;
         int load;
-        unordered_map<size_t, string> content; 
+        unordered_map<uint32_t, string> content; 
 
     public:
         Peer(sockaddr_in socket_addr, int sockfd) {
@@ -83,21 +83,21 @@ class Peer {
             return load;
         }
 
-        string get(size_t key) {
+        string get(uint32_t key) {
             return content[key];
         }
 
-        void put(size_t key, string value) {
+        void put(uint32_t key, string value) {
             content[key] = value;
             load++;
         }
 
-        void del(size_t key) {
+        void del(uint32_t key) {
             content.erase(key);
             load--;
         }
 
-        bool has(size_t key) {
+        bool has(uint32_t key) {
             return (content.count(key) > 0); 
         }
 
@@ -305,7 +305,7 @@ Peer initPeerFromAddrPort(const char* addr, const char* port) {
 
 void splitString(const string& s, char delim, vector<string>& ret) {
     int i = 0;
-    int pos = s.find(delim);
+    unsigned long pos = s.find(delim);
     while (pos != string::npos) {
         ret.push_back(s.substr(i, pos-i));
         i = ++pos;
@@ -373,7 +373,7 @@ void handleGetPeers(int sockfd, vector<Peer> &peers) {
     stringstream ret;
 
     bool allSuccess = true;
-    for(size_t i=1; i<peers.size(); i++) {
+    for(uint32_t i=1; i<peers.size(); i++) {
         char type = ADD_NEW_PEER;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
         if( send(peerfd, &type, 1, 0) < 0 ) {
@@ -455,17 +455,18 @@ void addcontent(int sockfd, Peer &me) {
     hash<string> str_hash;
 
     string value = recvcontent(sockfd);
-    size_t key = str_hash(value) * size_t(rand());
+    uint32_t key = str_hash(value) * uint32_t(rand());
 
     me.put(key, value);
 
-    if( send(sockfd, &key, sizeof(key), 0) < 0 ) {
-        perror("could not send add content success");
+    uint32_t nkey = htonl(key);
+    if(send(sockfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
+        perror("could not send add content key back");
         exit(1);
     }
 }
 
-void killcontent(int sockfd, size_t key, Peer &me) {
+void killcontent(int sockfd, uint32_t key, Peer &me) {
     char success = FAILURE;
     if(me.has(key)) {
         success = SUCCESS;
@@ -479,26 +480,28 @@ void killcontent(int sockfd, size_t key, Peer &me) {
 }
 
 void removecontent_f(int sockfd, Peer &me) {
-    size_t key;
-    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+    uint32_t nkey;
+    if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
     }
+    uint32_t key = ntohl(nkey);
     killcontent(sockfd, key, me);
 }
 
 void removecontent(int sockfd, vector<Peer> &peers) {
-    size_t key;
-    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+    uint32_t nkey;
+    if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
     }
+    uint32_t key = ntohl(nkey);
     if(peers[0].has(key)) {
         killcontent(sockfd, key, peers[0]);
         return;
     }
 
-    for(size_t i=1; i<peers.size(); i++) {
+    for(uint32_t i=1; i<peers.size(); i++) {
 
         char type = REMOVE_F;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
@@ -534,7 +537,7 @@ void removecontent(int sockfd, vector<Peer> &peers) {
     }
 }
 
-void checkoutcontent(int sockfd, size_t key, Peer &me) {
+void checkoutcontent(int sockfd, uint32_t key, Peer &me) {
     char success = FAILURE;
     if(me.has(key)) {
         success = SUCCESS;
@@ -548,17 +551,18 @@ void checkoutcontent(int sockfd, size_t key, Peer &me) {
     }
 }
 void lookupcontent(int sockfd, vector<Peer> &peers) {
-    size_t key;
-    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+    uint32_t nkey;
+    if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
     }
+    uint32_t key = ntohl(nkey);
     if(peers[0].has(key)) {
         checkoutcontent(sockfd, key, peers[0]);
         return;
     }
 
-    for(size_t i=1; i<peers.size(); i++) {
+    for(uint32_t i=1; i<peers.size(); i++) {
 
         char type = LOOKUP_F;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
@@ -596,11 +600,12 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
     }
 }
 void lookupcontent_f(int sockfd, Peer &me) {
-    size_t key;
-    if(recv(sockfd, &key, sizeof(key), 0) < 0) {
+    uint32_t nkey;
+    if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
         perror("could not receive key"); 
         exit(1);
     }
+    uint32_t key = ntohl(nkey);
     checkoutcontent(sockfd, key, me);
 }
 
@@ -610,7 +615,7 @@ void redistribute(vector<Peer> &peers) {
     int sizes [peers.size()];
 
     sizes[0] = peers[0].getLoad();
-    for (size_t i = 1; i < peers.size(); i++) {
+    for (uint32_t i = 1; i < peers.size(); i++) {
         
     }
 }

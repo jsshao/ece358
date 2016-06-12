@@ -21,13 +21,13 @@ using namespace std;
 // followed by content
 void sendcontent(int sockfd, const char* buf) {
 
-    size_t len = strlen(buf);
-    size_t bytesleft = len;
-    ssize_t total = 0;
-    ssize_t sent;
+    uint32_t len = strlen(buf);
+    uint32_t bytesleft = len;
+    uint32_t total = 0;
+    int32_t sent;
 
     uint32_t nwlen = htonl(len); //length in big endian
-    if( send(sockfd, &nwlen, sizeof(uint32_t), 0) < 0 ) {
+    if( send(sockfd, &nwlen, sizeof(nwlen), 0) < 0 ) {
         perror("could not send message length"); 
         exit(1);
     }
@@ -38,7 +38,7 @@ void sendcontent(int sockfd, const char* buf) {
             perror("uhhh, it just randomly stopped sending");
             exit(1);
         }
-        total += sent;
+        total += uint32_t(sent);
         bytesleft -= sent;
     }
 }
@@ -48,25 +48,30 @@ void sendcontent(int sockfd, const char* buf) {
 // followed by content
 string recvcontent(int sockfd) {
     string s;
-    size_t buflen = 256;
+    uint32_t buflen = 256;
     char buf[buflen];
-    ssize_t recvlen;
-    ssize_t total = 0;
+    int32_t recvlen;
+    uint32_t total = 0;
 
     uint32_t nwlen; //length in big endian
-    if(recv(sockfd, &nwlen, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
+    if(recv(sockfd, &nwlen, sizeof(nwlen), 0) != sizeof(nwlen)) {
         perror("could not receive length properly");
         exit(1);
     }
-    ssize_t desired = ntohl(nwlen);
+    uint32_t desired = ntohl(nwlen);
     while(total != desired) {
         // cout<<"desired"<<desired<<endl;
         // cout<<"receiving"<<endl;
-        if ((recvlen = recv(sockfd, buf, buflen-1, 0)) < 0) {
+        uint32_t attemptlen = buflen-1;
+        uint32_t left = desired - total;
+        if(left <= 0) { perror("receiving negative length"); break;}
+        if(uint32_t(left) <= buflen-1) {attemptlen = left;}
+
+        if ((recvlen = recv(sockfd, buf, attemptlen, 0)) < 0) {
             perror("uhhh, I didn't receive right length"); 
             exit(1);
         }
-        total += recvlen;
+        total += uint32_t(recvlen);
         // cout<<"received: "<<recvlen<<endl<<"still has: "<<total<<endl;
         buf[recvlen] = 0;
         s += string(buf);

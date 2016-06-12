@@ -67,10 +67,10 @@ int main(int argc, char* argv[]) {
     // printf("Connection established with server.\n");
 
     // RemovePeer message
-    size_t buflen = 2;
+    uint32_t buflen = 2;
     char buf[] = "1";
 
-    ssize_t sentlen;
+    int32_t sentlen;
     if((sentlen = send(sockfd, buf, strlen(buf), 0)) < 0) {
         perror("Failed to send"); 
         return -1;
