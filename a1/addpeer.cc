@@ -46,7 +46,7 @@ void allkeys(int sockfd, Peer& me);
 void removePeer(int sockfd, vector<Peer>& peers);
 void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer);     // add content naively to self
 
-void killcontent(int sockfd, uint32_t key, Peer &me); // actually removing content
+char killcontent(uint32_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);// remove content on request by a client
 void removecontent_f(int sockfd, Peer &me);         // remove content on request by a peer
 
@@ -666,17 +666,14 @@ void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer) {
     }
 }
 
-void killcontent(int sockfd, uint32_t key, Peer &me) {
+char killcontent(uint32_t key, Peer &me) {
     char success = FAILURE;
     if(me.has(key)) {
         success = SUCCESS;
         me.del(key);
         cout<<"content killed"<<endl;
     }
-    if( send(sockfd, &success, 1, 0) < 0 ) {
-        perror("could not send force remove content confirmation"); 
-        exit(1);
-    }
+    return success;
 }
 
 void removecontent_f(int sockfd, Peer &me) {
@@ -686,7 +683,11 @@ void removecontent_f(int sockfd, Peer &me) {
         exit(1);
     }
     uint32_t key = ntohl(nkey);
-    killcontent(sockfd, key, me);
+    char success = killcontent(key, me);
+    if( send(sockfd, &success, 1, 0) < 0 ) {
+        perror("could not send force remove content confirmation"); 
+        exit(1);
+    }
 }
 
 void removecontent(int sockfd, vector<Peer> &peers) {
@@ -697,7 +698,12 @@ void removecontent(int sockfd, vector<Peer> &peers) {
     }
     uint32_t key = ntohl(nkey);
     if(peers[0].has(key)) {
-        killcontent(sockfd, key, peers[0]);
+        char success = killcontent(key, peers[0]);
+        redistribute(peers);
+        if( send(sockfd, &success, 1, 0) < 0 ) {
+            perror("could not send force remove content confirmation"); 
+            exit(1);
+        }
         return;
     }
 
@@ -707,6 +713,11 @@ void removecontent(int sockfd, vector<Peer> &peers) {
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
         if( send(peerfd, &type, 1, 0) < 0 ) {
             perror("could not send kill content request from peer to peer");
+            exit(1);
+        }
+
+        if(send(peerfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
+            perror("could not send add content key back");
             exit(1);
         }
 
@@ -769,6 +780,11 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
         if( send(peerfd, &type, 1, 0) < 0 ) {
             perror("could not send lookup content request from peer to peer");
+            exit(1);
+        }
+
+        if(send(peerfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
+            perror("could not send add content key back");
             exit(1);
         }
 
