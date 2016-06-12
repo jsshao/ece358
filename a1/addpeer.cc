@@ -29,7 +29,7 @@ extern int mybind(int sockfd, struct sockaddr_in *addr);
 extern string recvcontent(int sockfd);
 extern void sendcontent(int sockfd, const char* buf);
 
-void redistribute(vector<Peer> &peers);
+void redistribute(vector<Peer> &peers, bool includeSelf);
 
 int createPeerConnection(struct sockaddr_in server);
 Peer initPeerFromAddrPort(const char* addr, const char* port);
@@ -38,6 +38,7 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers);  
 void handleGetPeers(int sockfd, vector<Peer> &peers);   // requested by a new peer to get peers and update system
 void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to add a new peer
 void eraseRemovedPeer(int sockfd, vector<Peer> &peers);
+void handleRedistributeRequest(int sockfd, vector<Peer> &peers);
 
 void handleGetLoad(int sockfd, Peer& me);
 void popRandom(int connectedsock, Peer &me);
@@ -192,6 +193,7 @@ int main(int argc, char* argv[]) {
     // Update existing peers
     if (argc == 3) {
         updatePeersInfo(argv[1], argv[2], peers);
+        redistribute(peers, true);
     }
 
     //if (fork()) {
@@ -273,6 +275,9 @@ int main(int argc, char* argv[]) {
                 break;
             case RECEIVE_TRANSFER_CONTENT:  // used by redistribution
                 addcontent(connectedsock, peers[0], peers, true);
+                break;
+            case REDISTRIBUTION_REQUEST:
+                handleRedistributeRequest(connectedsock, peers);
                 break;
 
         }
@@ -482,6 +487,16 @@ void eraseRemovedPeer(int sockfd, vector<Peer> &peers) {
     }
 }
 
+void handleRedistributeRequest(int sockfd, vector<Peer> &peers) {
+    redistribute(peers, true);
+
+    char success = SUCCESS;
+    if( send(sockfd, &success, 1, 0) < 0 ) {
+        perror("could not send add content success");
+        exit(1);
+    }
+}
+
 // =================================================================================================
 // Redistribution & Synchronizing
 // =================================================================================================
@@ -506,7 +521,7 @@ void popRandom(int sockfd, Peer & me) {
 }
 
 void transferContent(Peer &from, Peer &to, Peer & me) {
-    cout << "Transferring countent from " << from.getAddressPort() << " to " << to.getAddressPort() << endl;
+    cout << "Transferring content from " << from.getAddressPort() << " to " << to.getAddressPort() << endl;
     string contentKeyValue;
     if (&me != &from) {
         char type = POP_RANDOM;    
@@ -544,13 +559,18 @@ void transferContent(Peer &from, Peer &to, Peer & me) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+    } else {
+        uint32_t key;
+        string value;
+        decodeKeyValue(contentKeyValue, key, value);
+        me.put(key, value);
     }
 }
 
-void redistribute(vector<Peer> &peers) {
+void redistribute(vector<Peer> &peers, bool includeSelf) {
     // Total load
-    int sum = 0;
-    int sizes [peers.size()];
+    uint32_t sum = 0;
+    uint32_t sizes [peers.size()];
 
     sizes[0] = peers[0].getLoad();
 
@@ -563,11 +583,12 @@ void redistribute(vector<Peer> &peers) {
             exit(1);
         }
 
-        int load;
+        uint32_t load;
         if( recv(peerfd, &load, sizeof(load), 0) < 0 ) {
             perror("could not get getLoad confirmation"); 
             exit(1);
         }
+        load = ntohl(load);
 
         if(shutdown(peerfd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
@@ -578,8 +599,9 @@ void redistribute(vector<Peer> &peers) {
         sum += load;
     }
 
+    uint32_t startingPeer = includeSelf ? 0 : 1;
     while (true) {
-        int maxPeer = 0, minPeer = 0;
+        int maxPeer = startingPeer, minPeer = startingPeer;
         for (uint32_t i = 1; i < peers.size(); i++) {
             if (sizes[i] > sizes[maxPeer]) maxPeer = i;
             else if (sizes[i] < sizes[minPeer]) minPeer = i;
@@ -594,7 +616,7 @@ void redistribute(vector<Peer> &peers) {
 }
 
 void handleGetLoad(int sockfd, Peer& me) {
-    int size = me.getLoad();
+    uint32_t size = htonl(me.getLoad());
 
     if( send(sockfd, &size, sizeof(size), 0) < 0 ) {
         perror("could not send add content success");
@@ -632,6 +654,27 @@ void removePeer(int sockfd, vector<Peer>& peers) {
         }
     }
 
+    while (peers[0].getLoad() > 0 && peers.size() > 1) {
+        int peerfd = createPeerConnection(peers[1].getSocketAddr());
+        char type = RECEIVE_TRANSFER_CONTENT;
+
+        if(send(peerfd, &type, 1, 0) < 0 ) {
+            perror("could not send transferContent request from peer to peer");
+            exit(1);
+        }
+
+        popRandom(peerfd, peers[0]);
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+    }
+
+    if (peers.size() > 1) {
+        redistribute(peers, false);
+    }
+
     char success = 'y';
     if (send(sockfd, &success, 1, 0) < 0) {
         perror("could not send remove peer confirmation"); 
@@ -656,7 +699,7 @@ void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer) {
     me.put(key, value);
 
     if (!isTransfer) {
-        redistribute(peers);
+        redistribute(peers, true);
     }
 
     uint32_t nkey = htonl(key);
@@ -699,7 +742,7 @@ void removecontent(int sockfd, vector<Peer> &peers) {
     uint32_t key = ntohl(nkey);
     if(peers[0].has(key)) {
         char success = killcontent(key, peers[0]);
-        redistribute(peers);
+        redistribute(peers, true);
         if( send(sockfd, &success, 1, 0) < 0 ) {
             perror("could not send force remove content confirmation"); 
             exit(1);
@@ -733,7 +776,7 @@ void removecontent(int sockfd, vector<Peer> &peers) {
         }
 
         if(success == SUCCESS) {
-            redistribute(peers);
+            redistribute(peers, true);
             if(send(sockfd, &success, 1, 0) < 0) {
                 perror("could not send client remove content confirmation"); 
                 exit(1);
