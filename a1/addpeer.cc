@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <functional>
+#include <sstream>
 #include "constants.h"
 using namespace std;
 
@@ -32,6 +33,13 @@ extern void sendcontent(int sockfd, const char* buf);
 void redistribute(vector<Peer> &peers);
 
 int createPeerConnection(struct sockaddr_in server);
+Peer initPeerFromAddrPort(const char* addr, const char* port);
+
+void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers);  // called by new peer to get all the other peers
+void handleGetPeers(int sockfd, vector<Peer> &peers);   // requested by a new peer to get peers and update system
+void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to add a new peer
+
+
 void removePeer(int sockfd);
 void addcontent(int sockfd, Peer &me);              // add content naively to self
 
@@ -42,6 +50,7 @@ void removecontent_f(int sockfd, Peer &me);         // remove content on request
 void checkoutcontent(int sockfd, size_t key, Peer &me); // actually looking up content
 void lookupcontent(int sockfd, vector<Peer> &peers);// lookup content on request by a client
 void lookupcontent_f(int sockfd, Peer &me);         // remove content on request by a peer
+
 
 class Peer {
     private:
@@ -54,6 +63,11 @@ class Peer {
         Peer(sockaddr_in socket_addr, int sockfd) {
             this->socket_addr = socket_addr;
             this->sockfd = sockfd;
+            this->load = 0;
+        }
+
+        Peer(sockaddr_in socket_addr) {
+            this->socket_addr = socket_addr;
             this->load = 0;
         }
 
@@ -85,6 +99,12 @@ class Peer {
 
         bool has(size_t key) {
             return (content.count(key) > 0); 
+        }
+
+        string getAddressPort() {
+            stringstream ss;
+            ss << inet_ntoa(this->socket_addr.sin_addr) << ":" << ntohs(this->socket_addr.sin_port);
+            return ss.str();
         }
 };
 
@@ -123,6 +143,11 @@ Peer initialize() {
     return Peer(server, sockfd);
 }
 
+void printPeers(vector<Peer> & peers) {
+    for (Peer &p : peers) {
+        cout << p.getAddressPort() << endl;
+    }
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 1 && argc != 3) {
@@ -138,8 +163,9 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
-        // TBD
-        cout << argv[2] << argv[1] << endl;
+        cout << "trying to join p2p" << endl;
+        updatePeersInfo(argv[1], argv[2], peers);
+        cout << "done joining p2p" << endl;
     }
 
     //if (fork()) {
@@ -201,7 +227,19 @@ int main(int argc, char* argv[]) {
             case LOOKUP_F:
                 lookupcontent_f(connectedsock, peers[0]);
                 break;
+            case GET_PEERS:
+                cout << "Notifying all peers ..." << peers.size() << endl;
+                handleGetPeers(connectedsock, peers);
+                cout << "Done notifying all peers. peers: " << peers.size() << endl;
+                break;
+            case GET_LOAD:
+                break;
+            case ADD_NEW_PEER:
+                addNewPeer(connectedsock, peers);
+                cout << "adding peer " << peers[peers.size() - 1].getAddressPort() << "..." << endl;
+                break;
         }
+        printPeers(peers);
     }
 
     REMOVE_PEER:
@@ -213,6 +251,10 @@ int main(int argc, char* argv[]) {
     //}
     return 0;
 }
+
+// =================================================================================================
+// Helpers 
+// =================================================================================================
 
 int createPeerConnection(struct sockaddr_in server) {
     // create and bind a socket
@@ -248,6 +290,154 @@ int createPeerConnection(struct sockaddr_in server) {
 
     return sockfd;
 }
+
+Peer initPeerFromAddrPort(const char* addr, const char* port) {
+    struct sockaddr_in server;
+    bzero(&server, sizeof(struct sockaddr_in));
+    server.sin_family = AF_INET;
+    if(!inet_aton(addr, &(server.sin_addr))) {
+        perror("invalid server-ip"); 
+        exit(1);
+    }
+    server.sin_port = htons(atoi(port));
+    return Peer(server);
+}
+
+void splitString(const string& s, char delim, vector<string>& ret) {
+    int i = 0;
+    int pos = s.find(delim);
+    while (pos != string::npos) {
+        ret.push_back(s.substr(i, pos-i));
+        i = ++pos;
+        pos = s.find(delim, pos);
+    }
+    if (pos == string::npos)
+        ret.push_back(s.substr(i, s.length()));
+}
+
+// =================================================================================================
+// Handling new peer creation  
+// =================================================================================================
+
+void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
+    // called by a new peer trying to join a p2p network which contains addr:port
+    // will make a request to addr:port which returns a list of all existing peers (and make them add the new peer)
+
+    Peer peer = initPeerFromAddrPort(addr, port);
+    int peerfd = createPeerConnection(peer.getSocketAddr());
+
+    char type = GET_PEERS;
+
+    if( send(peerfd, &type, 1, 0) < 0 ) {
+        perror("could not send getPeerInfo request from peer to peer");
+        exit(1);
+    }
+
+    sendcontent(peerfd, peers[0].getAddressPort().c_str());
+
+    char success;
+    if( recv(peerfd, &success, 1, 0) < 0 ) {
+        perror("could not get getPeerInfo confirmation"); 
+        exit(1);
+    }
+
+    if(shutdown(peerfd, SHUT_RDWR) < 0) {
+        perror("attempt at shuting down connection failed"); 
+        exit(1);
+    }
+
+    if(success == SUCCESS) {
+        string peersString = recvcontent(peerfd);
+        cout << peersString << endl;
+
+        vector<string> peerStrings;
+        splitString(peersString, ' ', peerStrings);
+        for (string newPeerString: peerStrings) {
+            vector<string> addrport;
+            splitString(newPeerString, ':', addrport);
+
+            const char* addr = addrport[0].c_str();
+            const char* port = addrport[1].c_str();
+
+            peers.push_back(initPeerFromAddrPort(addr, port));
+        }
+    }
+}
+
+void handleGetPeers(int sockfd, vector<Peer> &peers) {
+    // handles when a new peer joins the network and requests to get a list of all peers
+    // does 2 things:
+    // 1) returns a list of all peers in the network delimited by ' '
+    // 2) sends a request to each existing peer to add this new peer to their vector
+    string newPeer = recvcontent(sockfd);
+    stringstream ret;
+
+    bool allSuccess = true;
+    for(size_t i=1; i<peers.size(); i++) {
+        char type = ADD_NEW_PEER;
+        int peerfd = createPeerConnection(peers[i].getSocketAddr());
+        if( send(peerfd, &type, 1, 0) < 0 ) {
+            perror("could not send addNewPeer request from peer to peer");
+            exit(1);
+        }
+
+        sendcontent(peerfd, newPeer.c_str());
+
+        char success;
+        if( recv(peerfd, &success, 1, 0) < 0 ) {
+            perror("could not get peer addNewPeer confirmation"); 
+            exit(1);
+        }
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+        allSuccess = allSuccess && success == SUCCESS;
+        ret << peers[i].getAddressPort() << " ";
+    }
+
+    cout << "adding peer..." << newPeer << endl;
+    vector<string> addrport;
+    splitString(newPeer, ':', addrport);
+    peers.push_back(initPeerFromAddrPort(addrport[0].c_str(), addrport[1].c_str()));
+    ret << peers[0].getAddressPort();
+
+    if(allSuccess) {
+        cout << "all peers added new peer successfully!" << endl;
+        char success = SUCCESS;
+        if(send(sockfd, &success, 1, 0) < 0) {
+            perror("could not send client handleGetPeers confirmation"); 
+            exit(1);
+        }
+
+        sendcontent(sockfd, ret.str().c_str());
+    }
+}
+
+void addNewPeer(int sockfd, vector<Peer> &peers) {
+    // add new peer to the peer array 
+    string newPeer = recvcontent(sockfd);
+    cout << "adding new peer..." << newPeer << endl;
+    vector<string> addrport;
+    splitString(newPeer, ':', addrport);
+
+    const char* addr = addrport[0].c_str();
+    const char* port = addrport[1].c_str();
+
+    peers.push_back(initPeerFromAddrPort(addr, port));
+
+    char success = SUCCESS;
+    if(send(sockfd, &success, 1, 0) < 0) {
+        perror("could not send client remove content confirmation"); 
+        exit(1);
+    }
+}
+
+
+// =================================================================================================
+// Other stuff 
+// =================================================================================================
 
 void removePeer(int sockfd) {
     char success = 'y';
@@ -417,7 +607,10 @@ void lookupcontent_f(int sockfd, Peer &me) {
 void redistribute(vector<Peer> &peers) {
     // Total load
     int sum = 0;
-    for (size_t i = 0; i < peers.size(); i++) {
-        sum += peers[i].getLoad();
+    int sizes [peers.size()];
+
+    sizes[0] = peers[0].getLoad();
+    for (size_t i = 1; i < peers.size(); i++) {
+        
     }
 }

@@ -9,5 +9,8 @@
 #define REMOVE_F 22
 #define LOOKUP 23
 #define LOOKUP_F 24
+#define GET_LOAD 30
+#define GET_PEERS 31
+#define ADD_NEW_PEER 32
 
 #endif
