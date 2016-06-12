@@ -24,8 +24,6 @@ using namespace std;
 
 class Peer;
 
-void test(int sockfd);
-
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
 extern string recvcontent(int sockfd);
@@ -39,13 +37,14 @@ Peer initPeerFromAddrPort(const char* addr, const char* port);
 void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers);  // called by new peer to get all the other peers
 void handleGetPeers(int sockfd, vector<Peer> &peers);   // requested by a new peer to get peers and update system
 void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to add a new peer
+void eraseRemovedPeer(int sockfd, vector<Peer> &peers);
 
 void handleGetLoad(int sockfd, Peer& me);
 void popRandom(int connectedsock, Peer &me);
 void allkeys(int sockfd, Peer& me);
 
-void removePeer(int sockfd);
-void addcontent(int sockfd, Peer &me, bool isTransfer);     // add content naively to self
+void removePeer(int sockfd, vector<Peer>& peers);
+void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer);     // add content naively to self
 
 void killcontent(int sockfd, uint32_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);// remove content on request by a client
@@ -239,24 +238,20 @@ int main(int argc, char* argv[]) {
             case ALL_KEYS:
                 allkeys(connectedsock, peers[0]);
                 break;
-            case MSG_REMOVE:
-                removePeer(connectedsock);
+            case MSG_REMOVE:    // redistribute
+                removePeer(connectedsock, peers);
                 goto REMOVE_PEER;
-                // test(connectedsock);
-            case ADD: //smart, redistribute
-                addcontent(connectedsock, peers[0], false);
-                redistribute(peers);
+            case ADD: //smart, redistribute based on flag
+                addcontent(connectedsock, peers[0], peers, false);
                 break;
-            case REMOVE: //smart, redistribute
+            case REMOVE: //smart, redistribute after removal
                 removecontent(connectedsock, peers);
-                // redistribute(peers);
                 break;
-            case REMOVE_F: //dummy
+            case REMOVE_F: //dummy, does not redistribute
                 removecontent_f(connectedsock, peers[0]); 
                 break;
-            case LOOKUP: //smart redistribute
+            case LOOKUP:
                 lookupcontent(connectedsock, peers);
-                // redistribute(peers);
                 break;
             case LOOKUP_F:
                 lookupcontent_f(connectedsock, peers[0]);
@@ -267,14 +262,17 @@ int main(int argc, char* argv[]) {
             case GET_LOAD:
                 handleGetLoad(connectedsock, peers[0]);
                 break;
-            case ADD_NEW_PEER:
+            case ADD_NEW_PEER:  // adds a peer to the vector
                 addNewPeer(connectedsock, peers);
                 break;
-            case POP_RANDOM:
+            case ERASE_REMOVED_PEER:  // removes a peer from the vector
+                eraseRemovedPeer(connectedsock, peers);
+                break;
+            case POP_RANDOM:    // used by redistribution
                 popRandom(connectedsock, peers[0]);
                 break;
-            case RECEIVE_TRANSFER_CONTENT:
-                addcontent(connectedsock, peers[0], true);
+            case RECEIVE_TRANSFER_CONTENT:  // used by redistribution
+                addcontent(connectedsock, peers[0], peers, true);
                 break;
 
         }
@@ -354,7 +352,7 @@ void splitString(const string& s, char delim, vector<string>& ret) {
 }
 
 // =================================================================================================
-// Handling new peer creation  
+// Handling peer creation / removal
 // =================================================================================================
 
 void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
@@ -453,7 +451,6 @@ void handleGetPeers(int sockfd, vector<Peer> &peers) {
 void addNewPeer(int sockfd, vector<Peer> &peers) {
     // add new peer to the peer array 
     string newPeer = recvcontent(sockfd);
-    cout << "adding new peer..." << newPeer << endl;
     vector<string> addrport;
     splitString(newPeer, ':', addrport);
 
@@ -466,6 +463,22 @@ void addNewPeer(int sockfd, vector<Peer> &peers) {
     if(send(sockfd, &success, 1, 0) < 0) {
         perror("could not send client remove content confirmation"); 
         exit(1);
+    }
+}
+
+void eraseRemovedPeer(int sockfd, vector<Peer> &peers) {
+    string removedPeer = recvcontent(sockfd);
+    uint32_t removeIndex = -1;
+
+    for (uint32_t i = 1; i < peers.size(); i++) {
+        if (peers[i].getAddressPort().compare(removedPeer) == 0) {
+            removeIndex = i;
+            break;
+        }
+    }
+
+    if (removeIndex > 0) {
+        peers.erase(peers.begin() + removeIndex);
     }
 }
 
@@ -567,7 +580,7 @@ void redistribute(vector<Peer> &peers) {
 
     while (true) {
         int maxPeer = 0, minPeer = 0;
-        for (int i = 1; i < peers.size(); i++) {
+        for (uint32_t i = 1; i < peers.size(); i++) {
             if (sizes[i] > sizes[maxPeer]) maxPeer = i;
             else if (sizes[i] < sizes[minPeer]) minPeer = i;
         }
@@ -601,10 +614,25 @@ void allkeys(int sockfd, Peer& me) {
     }
 }
 
-void removePeer(int sockfd) {
+void removePeer(int sockfd, vector<Peer>& peers) {
+    for(uint32_t i=1; i<peers.size(); i++) {
+        char type = ERASE_REMOVED_PEER;
+        int peerfd = createPeerConnection(peers[i].getSocketAddr());
+
+        if(send(peerfd, &type, 1, 0) < 0 ) {
+            perror("could not send eraseRemovedPeer request from peer to peer");
+            exit(1);
+        }
+
+        sendcontent(peerfd, peers[0].getAddressPort().c_str());
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+    }
+
     char success = 'y';
-    // NEED TO REDISTRIBUTE HERE
-    //
     if (send(sockfd, &success, 1, 0) < 0) {
         perror("could not send remove peer confirmation"); 
         exit(1);
@@ -612,7 +640,7 @@ void removePeer(int sockfd) {
     return;
 }
 
-void addcontent(int sockfd, Peer &me, bool isTransfer) {
+void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer) {
     uint32_t key;
     string value;
 
@@ -626,6 +654,10 @@ void addcontent(int sockfd, Peer &me, bool isTransfer) {
     }
 
     me.put(key, value);
+
+    if (!isTransfer) {
+        redistribute(peers);
+    }
 
     uint32_t nkey = htonl(key);
     if(send(sockfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
@@ -690,6 +722,7 @@ void removecontent(int sockfd, vector<Peer> &peers) {
         }
 
         if(success == SUCCESS) {
+            redistribute(peers);
             if(send(sockfd, &success, 1, 0) < 0) {
                 perror("could not send client remove content confirmation"); 
                 exit(1);
@@ -775,12 +808,4 @@ void lookupcontent_f(int sockfd, Peer &me) {
     }
     uint32_t key = ntohl(nkey);
     checkoutcontent(sockfd, key, me);
-}
-
-void test(int sockfd) {
-    char success = SUCCESS;
-    // if(send(sockfd, &success, 1, 0) < 0) {
-    //     perror("could not send client remove content confirmation"); 
-    //     exit(1);
-    // }
 }

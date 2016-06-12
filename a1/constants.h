@@ -14,6 +14,7 @@
 #define ADD_NEW_PEER 32
 #define POP_RANDOM 33
 #define RECEIVE_TRANSFER_CONTENT 34
+#define ERASE_REMOVED_PEER 35
 
 #define ALL_KEYS 'a'
 
