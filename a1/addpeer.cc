@@ -24,6 +24,7 @@ using namespace std;
 
 class Peer;
 
+void test(int sockfd);
 
 extern int pickServerIPAddr(struct in_addr *srv_ip);
 extern int mybind(int sockfd, struct sockaddr_in *addr);
@@ -39,9 +40,12 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers);  
 void handleGetPeers(int sockfd, vector<Peer> &peers);   // requested by a new peer to get peers and update system
 void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to add a new peer
 
+void handleGetLoad(int sockfd, Peer& me);
+void popRandom(int connectedsock, Peer &me);
+void allkeys(int sockfd, Peer& me);
 
 void removePeer(int sockfd);
-void addcontent(int sockfd, Peer &me);              // add content naively to self
+void addcontent(int sockfd, Peer &me, bool isTransfer);     // add content naively to self
 
 void killcontent(int sockfd, uint32_t key, Peer &me); // actually removing content
 void removecontent(int sockfd, vector<Peer> &peers);// remove content on request by a client
@@ -101,6 +105,30 @@ class Peer {
             return (content.count(key) > 0); 
         }
 
+        void printKeyValues() {
+            cout << "Printing Key Values of peer" << endl;
+            for (auto kv : content) {
+                cout << kv.first << ": " << kv.second << endl;
+            }
+        }
+
+        string getKeys() {
+            stringstream ss;
+            string delimiter = "";
+            for (auto kv : content) {
+                ss << delimiter << kv.first;
+                delimiter = ",";
+            }
+            return ss.str();
+        }
+
+        uint32_t getFirstKey() {
+            for (auto kv : content) {
+                return kv.first;
+            }
+            return -1;   // shouldnt happen
+        }
+
         string getAddressPort() {
             stringstream ss;
             ss << inet_ntoa(this->socket_addr.sin_addr) << ":" << ntohs(this->socket_addr.sin_port);
@@ -144,6 +172,7 @@ Peer initialize() {
 }
 
 void printPeers(vector<Peer> & peers) {
+    cout << "Printing peers of peer" << endl;
     for (Peer &p : peers) {
         cout << p.getAddressPort() << endl;
     }
@@ -163,9 +192,7 @@ int main(int argc, char* argv[]) {
 
     // Update existing peers
     if (argc == 3) {
-        cout << "trying to join p2p" << endl;
         updatePeersInfo(argv[1], argv[2], peers);
-        cout << "done joining p2p" << endl;
     }
 
     //if (fork()) {
@@ -175,6 +202,9 @@ int main(int argc, char* argv[]) {
 
     // Handle requests
     for (;;) {
+        printPeers(peers);
+        peers[0].printKeyValues();
+
         if (listen(peers[0].getSockfd(), 0) < 0) {
             perror("listen"); 
             exit(1);
@@ -206,40 +236,48 @@ int main(int argc, char* argv[]) {
         cout<<"Main Loop: message type :"<<int(type)<<endl;
 
         switch(type) {
+            case ALL_KEYS:
+                allkeys(connectedsock, peers[0]);
+                break;
             case MSG_REMOVE:
                 removePeer(connectedsock);
                 goto REMOVE_PEER;
+                // test(connectedsock);
             case ADD: //smart, redistribute
-                addcontent(connectedsock, peers[0]);
+                addcontent(connectedsock, peers[0], false);
                 redistribute(peers);
                 break;
             case REMOVE: //smart, redistribute
                 removecontent(connectedsock, peers);
-                redistribute(peers);
+                // redistribute(peers);
                 break;
             case REMOVE_F: //dummy
                 removecontent_f(connectedsock, peers[0]); 
                 break;
             case LOOKUP: //smart redistribute
                 lookupcontent(connectedsock, peers);
-                redistribute(peers);
+                // redistribute(peers);
                 break;
             case LOOKUP_F:
                 lookupcontent_f(connectedsock, peers[0]);
                 break;
             case GET_PEERS:
-                cout << "Notifying all peers ..." << peers.size() << endl;
                 handleGetPeers(connectedsock, peers);
-                cout << "Done notifying all peers. peers: " << peers.size() << endl;
                 break;
             case GET_LOAD:
+                handleGetLoad(connectedsock, peers[0]);
                 break;
             case ADD_NEW_PEER:
                 addNewPeer(connectedsock, peers);
-                cout << "adding peer " << peers[peers.size() - 1].getAddressPort() << "..." << endl;
                 break;
+            case POP_RANDOM:
+                popRandom(connectedsock, peers[0]);
+                break;
+            case RECEIVE_TRANSFER_CONTENT:
+                addcontent(connectedsock, peers[0], true);
+                break;
+
         }
-        printPeers(peers);
     }
 
     REMOVE_PEER:
@@ -279,7 +317,7 @@ int createPeerConnection(struct sockaddr_in server) {
         exit(1);
     }
 
-    //printf("client associated with %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+    // printf("client associated with %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
     // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
 
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
@@ -341,14 +379,8 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
         exit(1);
     }
 
-    if(shutdown(peerfd, SHUT_RDWR) < 0) {
-        perror("attempt at shuting down connection failed"); 
-        exit(1);
-    }
-
     if(success == SUCCESS) {
         string peersString = recvcontent(peerfd);
-        cout << peersString << endl;
 
         vector<string> peerStrings;
         splitString(peersString, ' ', peerStrings);
@@ -361,6 +393,11 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
 
             peers.push_back(initPeerFromAddrPort(addr, port));
         }
+    }
+
+    if(shutdown(peerfd, SHUT_RDWR) < 0) {
+        perror("attempt at shuting down connection failed"); 
+        exit(1);
     }
 }
 
@@ -397,14 +434,12 @@ void handleGetPeers(int sockfd, vector<Peer> &peers) {
         ret << peers[i].getAddressPort() << " ";
     }
 
-    cout << "adding peer..." << newPeer << endl;
     vector<string> addrport;
     splitString(newPeer, ':', addrport);
     peers.push_back(initPeerFromAddrPort(addrport[0].c_str(), addrport[1].c_str()));
     ret << peers[0].getAddressPort();
 
     if(allSuccess) {
-        cout << "all peers added new peer successfully!" << endl;
         char success = SUCCESS;
         if(send(sockfd, &success, 1, 0) < 0) {
             perror("could not send client handleGetPeers confirmation"); 
@@ -434,10 +469,137 @@ void addNewPeer(int sockfd, vector<Peer> &peers) {
     }
 }
 
+// =================================================================================================
+// Redistribution & Synchronizing
+// =================================================================================================
+
+string encodeKeyValue(uint32_t key, const string& value) {
+    stringstream res;
+    res << key << "," << value;
+    return res.str();
+}
+
+void decodeKeyValue(const string& encoded, uint32_t& key, string& value) {
+    unsigned long pos = encoded.find(",");
+    key = stoul(encoded.substr(0, pos));
+    value = encoded.substr(pos + 1, encoded.length());
+}
+
+void popRandom(int sockfd, Peer & me) {    
+    uint32_t key = me.getFirstKey();
+    string keyvalue = encodeKeyValue(key, me.get(key));
+    me.del(key);
+    sendcontent(sockfd, keyvalue.c_str());
+}
+
+void transferContent(Peer &from, Peer &to, Peer & me) {
+    cout << "Transferring countent from " << from.getAddressPort() << " to " << to.getAddressPort() << endl;
+    string contentKeyValue;
+    if (&me != &from) {
+        char type = POP_RANDOM;    
+        int fromfd = createPeerConnection(from.getSocketAddr());
+
+        if( send(fromfd, &type, 1, 0) < 0 ) {
+            perror("could not send send popRandom request from peer to peer");
+            exit(1);
+        }
+
+        contentKeyValue = recvcontent(fromfd);
+
+        if(shutdown(fromfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+    } else {
+        uint32_t key = me.getFirstKey();
+        contentKeyValue = encodeKeyValue(key, me.get(key));
+        me.del(key);
+    }
+
+    if (&me != &to) {
+        char type = RECEIVE_TRANSFER_CONTENT;
+        int tofd = createPeerConnection(to.getSocketAddr());
+
+        if( send(tofd, &type, 1, 0) < 0 ) {
+            perror("could not send send transfercontent request from peer to peer");
+            exit(1);
+        }
+
+        sendcontent(tofd, contentKeyValue.c_str());
+
+        if(shutdown(tofd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+    }
+}
+
+void redistribute(vector<Peer> &peers) {
+    // Total load
+    int sum = 0;
+    int sizes [peers.size()];
+
+    sizes[0] = peers[0].getLoad();
+
+    for(size_t i = 1; i< peers.size(); i++) {
+        char type = GET_LOAD;
+        int peerfd = createPeerConnection(peers[i].getSocketAddr());
+
+        if( send(peerfd, &type, 1, 0) < 0 ) {
+            perror("could not send send getLoad request from peer to peer");
+            exit(1);
+        }
+
+        int load;
+        if( recv(peerfd, &load, sizeof(load), 0) < 0 ) {
+            perror("could not get getLoad confirmation"); 
+            exit(1);
+        }
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+
+        sizes[i] = load;
+        sum += load;
+    }
+
+    while (true) {
+        int maxPeer = 0, minPeer = 0;
+        for (int i = 1; i < peers.size(); i++) {
+            if (sizes[i] > sizes[maxPeer]) maxPeer = i;
+            else if (sizes[i] < sizes[minPeer]) minPeer = i;
+        }
+        if (sizes[maxPeer] - sizes[minPeer] <= 1) {
+            break;
+        }
+        transferContent(peers[maxPeer], peers[minPeer], peers[0]);
+        sizes[maxPeer] -= 1;
+        sizes[minPeer] += 1;
+    }
+}
+
+void handleGetLoad(int sockfd, Peer& me) {
+    int size = me.getLoad();
+
+    if( send(sockfd, &size, sizeof(size), 0) < 0 ) {
+        perror("could not send add content success");
+        exit(1);
+    }
+}
 
 // =================================================================================================
 // Other stuff 
 // =================================================================================================
+
+void allkeys(int sockfd, Peer& me) {
+    string ret = me.getKeys();
+    if( send(sockfd, ret.c_str(), strlen(ret.c_str()), 0) < 0 ) {
+        perror("could not send all keys success");
+        exit(1);
+    }
+}
 
 void removePeer(int sockfd) {
     char success = 'y';
@@ -450,12 +612,18 @@ void removePeer(int sockfd) {
     return;
 }
 
-void addcontent(int sockfd, Peer &me) {
+void addcontent(int sockfd, Peer &me, bool isTransfer) {
+    uint32_t key;
+    string value;
 
-    hash<string> str_hash;
-
-    string value = recvcontent(sockfd);
-    uint32_t key = str_hash(value) * uint32_t(rand());
+    if (isTransfer) {
+        string keyvalue = recvcontent(sockfd);
+        decodeKeyValue(keyvalue, key, value);
+    } else {
+        hash<string> str_hash;
+        value = recvcontent(sockfd);
+        key = str_hash(value) * uint32_t(rand());
+    }
 
     me.put(key, value);
 
@@ -609,13 +777,10 @@ void lookupcontent_f(int sockfd, Peer &me) {
     checkoutcontent(sockfd, key, me);
 }
 
-void redistribute(vector<Peer> &peers) {
-    // Total load
-    int sum = 0;
-    int sizes [peers.size()];
-
-    sizes[0] = peers[0].getLoad();
-    for (uint32_t i = 1; i < peers.size(); i++) {
-        
-    }
+void test(int sockfd) {
+    char success = SUCCESS;
+    // if(send(sockfd, &success, 1, 0) < 0) {
+    //     perror("could not send client remove content confirmation"); 
+    //     exit(1);
+    // }
 }

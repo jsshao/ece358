@@ -1,6 +1,8 @@
 all: addpeer removepeer addcontent removecontent lookupcontent
 CFLAGS = -std=c++0x -Wall -Wextra 
 
+allkeys: allkeys.cc constants.h
+	g++ $(CFLAGS) -o allkeys allkeys.cc mybind.c
 
 addpeer: addpeer.cc pickip.c partial.cc constants.h
 	g++ $(CFLAGS) -o addpeer addpeer.cc pickip.c mybind.c partial.cc

@@ -12,5 +12,9 @@
 #define GET_LOAD 30
 #define GET_PEERS 31
 #define ADD_NEW_PEER 32
+#define POP_RANDOM 33
+#define RECEIVE_TRANSFER_CONTENT 34
+
+#define ALL_KEYS 'a'
 
 #endif
