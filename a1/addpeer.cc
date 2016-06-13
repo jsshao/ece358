@@ -38,7 +38,6 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers);  
 void handleGetPeers(int sockfd, vector<Peer> &peers);   // requested by a new peer to get peers and update system
 void addNewPeer(int sockfd, vector<Peer> &peers);       // requested by peer to add a new peer
 void eraseRemovedPeer(int sockfd, vector<Peer> &peers);
-void handleRedistributeRequest(int sockfd, vector<Peer> &peers);
 
 void handleGetLoad(int sockfd, Peer& me);
 void popRandom(int connectedsock, Peer &me);
@@ -276,10 +275,6 @@ int main(int argc, char* argv[]) {
             case RECEIVE_TRANSFER_CONTENT:  // used by redistribution
                 addcontent(connectedsock, peers[0], peers, true);
                 break;
-            case REDISTRIBUTION_REQUEST:
-                handleRedistributeRequest(connectedsock, peers);
-                break;
-
         }
     }
 
@@ -485,14 +480,10 @@ void eraseRemovedPeer(int sockfd, vector<Peer> &peers) {
     if (removeIndex > 0) {
         peers.erase(peers.begin() + removeIndex);
     }
-}
-
-void handleRedistributeRequest(int sockfd, vector<Peer> &peers) {
-    redistribute(peers, true);
 
     char success = SUCCESS;
-    if( send(sockfd, &success, 1, 0) < 0 ) {
-        perror("could not send add content success");
+    if(send(sockfd, &success, 1, 0) < 0) {
+        perror("could not send client remove content confirmation"); 
         exit(1);
     }
 }
@@ -521,14 +512,13 @@ void popRandom(int sockfd, Peer & me) {
 }
 
 void transferContent(Peer &from, Peer &to, Peer & me) {
-    cout << "Transferring content from " << from.getAddressPort() << " to " << to.getAddressPort() << endl;
     string contentKeyValue;
     if (&me != &from) {
         char type = POP_RANDOM;    
         int fromfd = createPeerConnection(from.getSocketAddr());
 
         if( send(fromfd, &type, 1, 0) < 0 ) {
-            perror("could not send send popRandom request from peer to peer");
+            perror("could not send send transferContent request from peer to peer");
             exit(1);
         }
 
@@ -554,6 +544,12 @@ void transferContent(Peer &from, Peer &to, Peer & me) {
         }
 
         sendcontent(tofd, contentKeyValue.c_str());
+
+        char success = SUCCESS;
+        if( recv(tofd, &success, 1, 0) < 0 ) {
+            perror("could not get transfer content confirmation"); 
+            exit(1);
+        }
 
         if(shutdown(tofd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
@@ -648,6 +644,12 @@ void removePeer(int sockfd, vector<Peer>& peers) {
 
         sendcontent(peerfd, peers[0].getAddressPort().c_str());
 
+        char success;
+        if( recv(peerfd, &success, 1, 0) < 0 ) {
+            perror("could not get peer force delete confirmation"); 
+            exit(1);
+        }
+
         if(shutdown(peerfd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
@@ -663,7 +665,13 @@ void removePeer(int sockfd, vector<Peer>& peers) {
             exit(1);
         }
 
-        popRandom(peerfd, peers[0]);
+        popRandom(peerfd, peers[0]);        // sends a random key from me to peerfd
+
+        char success;
+        if( recv(peerfd, &success, 1, 0) < 0 ) {
+            perror("could not get transferContent confirmation"); 
+            exit(1);
+        }
 
         if(shutdown(peerfd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
@@ -700,12 +708,17 @@ void addcontent(int sockfd, Peer &me, vector<Peer> & peers, bool isTransfer) {
 
     if (!isTransfer) {
         redistribute(peers, true);
-    }
-
-    uint32_t nkey = htonl(key);
-    if(send(sockfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
-        perror("could not send add content key back");
-        exit(1);
+        uint32_t nkey = htonl(key);
+        if(send(sockfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
+            perror("could not send add content key back");
+            exit(1);
+        }
+    } else {
+        char success = SUCCESS;
+        if(send(sockfd, &success, 1, 0) < 0) {
+            perror("could not send transfer content confirmation"); 
+            exit(1);
+        }
     }
 }
 
@@ -817,7 +830,7 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
         return;
     }
 
-    for(uint32_t i=1; i<peers.size(); i++) {
+    for(uint32_t i=1; i<peers.size(); i++)  {
 
         char type = LOOKUP_F;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
@@ -859,6 +872,7 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
         exit(1);
     }
 }
+
 void lookupcontent_f(int sockfd, Peer &me) {
     uint32_t nkey;
     if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
