@@ -112,12 +112,16 @@ class Peer {
         }
 
         string getKeys() {
-            stringstream ss;
-            string delimiter = "";
-            for (auto kv : content) {
-                ss << delimiter << kv.first;
-                delimiter = ",";
+            if (load == 0) {
+                return "0";
             }
+
+            stringstream ss;
+            for (auto kv : content) {
+                ss << kv.first << ",";
+            }
+            ss << "0";
+
             return ss.str();
         }
 
