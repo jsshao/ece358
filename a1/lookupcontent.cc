@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-     printf("Connection established with peer.\n");
+     // printf("Connection established with peer.\n");
 
 
     //type

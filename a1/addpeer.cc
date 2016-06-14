@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
 
-        printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        // printf("Connection accepted from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
         /*****************************************
          *
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
 
-        cout<<"Main Loop for: " << peers[0].getAddressPort() << " message type :"<<int(type)<<endl;
+        // cout<<"Main Loop for: " << peers[0].getAddressPort() << " message type :"<<int(type)<<endl;
 
         switch(type) {
             case ALL_KEYS:
@@ -291,7 +291,7 @@ int main(int argc, char* argv[]) {
 
     REMOVE_PEER:
 
-    printf("Child %d shutting down...\n", getpid());
+    // printf("Child %d shutting down...\n", getpid());
 
     if(shutdown(peers[0].getSockfd(), SHUT_RDWR) < 0) {
         perror("attempt at shuting down connection failed"); 
@@ -342,7 +342,7 @@ int createPeerConnection(struct sockaddr_in server) {
     tv.tv_usec = 0;
 
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
-
+    
     // cout << "BEGIN CONNECT" << endl;
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
 
@@ -800,7 +800,7 @@ char killcontent(uint32_t key, Peer &me) {
     if(me.has(key)) {
         success = SUCCESS;
         me.del(key);
-        cout<<"content killed"<<endl;
+        // cout<<"content killed"<<endl;
     }
     return success;
 }

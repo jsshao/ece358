@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
 
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
-        printf("Error: no such peer"); 
+        printf("Error: no such peer\n"); 
         return -1;
     }
 
