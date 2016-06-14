@@ -386,7 +386,7 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
 
         vector<string> peerStrings;
         splitString(peersString, ' ', peerStrings);
-        for (uint32_t i = 0; i < peersString.size(); i++) {
+        for (uint32_t i = 0; i < peerStrings.size(); i++) {
             string newPeerString = peerStrings[i];
             vector<string> addrport;
             splitString(newPeerString, ':', addrport);
