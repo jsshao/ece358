@@ -106,8 +106,8 @@ class Peer {
 
         void printKeyValues() {
             cout << "Printing Key Values of peer" << endl;
-            for (auto kv : content) {
-                cout << kv.first << ": " << kv.second << endl;
+            for (unordered_map<uint32_t, string>::iterator kv = content.begin(); kv != content.end(); ++kv ) {
+                cout << kv->first << ": " << kv->second << endl;
             }
         }
 
@@ -117,8 +117,8 @@ class Peer {
             }
 
             stringstream ss;
-            for (auto kv : content) {
-                ss << kv.first << ",";
+            for (unordered_map<uint32_t, string>::iterator kv = content.begin(); kv != content.end(); ++kv ) {
+                ss << kv->first << ",";
             }
             ss << "0";
 
@@ -126,8 +126,8 @@ class Peer {
         }
 
         uint32_t getFirstKey() {
-            for (auto kv : content) {
-                return kv.first;
+            for (unordered_map<uint32_t, string>::iterator kv = content.begin(); kv != content.end(); ++kv ) {
+                return kv->first;
             }
             return -1;   // shouldnt happen
         }
