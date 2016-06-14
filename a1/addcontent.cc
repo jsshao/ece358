@@ -64,9 +64,6 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-     printf("Connection established with peer.\n");
-
-
     //type
     char type = ADD;
     if(send(sockfd, &type, 1, 0) != 1) {
@@ -86,6 +83,9 @@ int main(int argc, char *argv[]) {
     if(shutdown(sockfd, SHUT_RDWR) < 0) {
         perror("Could not shut down connection"); 
         return -1;
+    }
+    if(close(sockfd) < 0) {
+        perror("close(peerfd)"); 
     }
 
     return 0;

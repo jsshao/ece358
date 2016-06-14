@@ -99,6 +99,9 @@ int main(int argc, char* argv[]) {
         perror("Could not shut down connection"); 
         return -1;
     }
+    if(close(sockfd) < 0) {
+        perror("close(peerfd)"); 
+    }
 
     return 0;
 }

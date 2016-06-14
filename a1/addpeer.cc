@@ -14,6 +14,7 @@
 #include <netinet/ip.h>
 #include <ifaddrs.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <time.h>
 #include <functional>
 #include <sstream>
@@ -105,7 +106,7 @@ class Peer {
         }
 
         void printKeyValues() {
-            cout << "Printing Key Values of peer" << endl;
+            cout << this->getAddressPort() << ": Printing Key Values of peer" << endl;
             for (unordered_map<uint32_t, string>::iterator kv = content.begin(); kv != content.end(); ++kv ) {
                 cout << kv->first << ": " << kv->second << endl;
             }
@@ -170,12 +171,16 @@ Peer initialize() {
         exit(-1);
     }
 
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
     cout << inet_ntoa(server.sin_addr) << " " << ntohs(server.sin_port) << endl;
     return Peer(server, sockfd);
 }
 
 void printPeers(vector<Peer> & peers) {
-    cout << "Printing peers of peer" << endl;
+    cout << peers[0].getAddressPort() << ": Printing peers of peer" << endl;
     for (uint32_t i = 0; i < peers.size(); i++) {
         cout << peers[i].getAddressPort() << endl;
     }
@@ -199,24 +204,26 @@ int main(int argc, char* argv[]) {
         redistribute(peers, true);
     }
 
-    //if (fork()) {
-        //// Parent just prints socket address and returns to user
-        //return 0;
-    //}
+    if (fork()) {
+        // Parent just prints socket address and returns to user
+        return 0;
+    }
 
     // Handle requests
     for (;;) {
-        printPeers(peers);
-        peers[0].printKeyValues();
-
+        // printPeers(peers);
+        // peers[0].printKeyValues();
+        // cout << "LISTENING!" << endl;
         if (listen(peers[0].getSockfd(), 0) < 0) {
             perror("listen"); 
             exit(1);
         }
+        // cout << "STOP LISTENING" << endl;
 
         int connectedsock;
         struct sockaddr_in client;
         socklen_t alen = sizeof(struct sockaddr_in);
+        // cout << "ACCEPTING" << endl;
         if ((connectedsock = accept(peers[0].getSockfd(), (struct sockaddr *)&client, &alen)) < 0) {
             perror("accept"); 
             exit(1);
@@ -237,7 +244,7 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
 
-        cout<<"Main Loop: message type :"<<int(type)<<endl;
+        cout<<"Main Loop for: " << peers[0].getAddressPort() << " message type :"<<int(type)<<endl;
 
         switch(type) {
             case ALL_KEYS:
@@ -284,11 +291,15 @@ int main(int argc, char* argv[]) {
 
     REMOVE_PEER:
 
-    //printf("Child %d shutting down...\n", getpid());
-    //if(shutdown(connectedsock, SHUT_RDWR) < 0) {
-        //perror("attempt at shuting down connection failed"); 
-        //exit(1);
-    //}
+    printf("Child %d shutting down...\n", getpid());
+
+    if(shutdown(peers[0].getSockfd(), SHUT_RDWR) < 0) {
+        perror("attempt at shuting down connection failed"); 
+        exit(1);
+    }
+    if(close(peers[0].getSockfd()) < 0) {
+        perror("close(child, sockfd)"); 
+    }
     return 0;
 }
 
@@ -319,16 +330,46 @@ int createPeerConnection(struct sockaddr_in server) {
         exit(1);
     }
 
-    // printf("client associated with %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-    // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+       perror("setsockopt(SO_REUSEADDR) failed");
 
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(sockfd, &set);
+    struct timeval tv;
+    tv.tv_sec = 4;             /* 4 second timeout */
+    tv.tv_usec = 0;
+
+    fcntl(sockfd, F_SETFL, O_NONBLOCK);
+
+    // cout << "BEGIN CONNECT" << endl;
     if(connect(sockfd, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
-        printf("Error: no such peer\n"); 
-        perror("");
-        exit(1);
-    }
 
-    return sockfd;
+        if ( errno != EINPROGRESS ) {
+            printf("Error: no such peer\n"); 
+            perror("");
+            exit(1);
+        }
+    }
+    // cout << "SELECTING" << endl;
+    if (select(sockfd+1, NULL, &set, NULL, &tv) == 1) {
+        int so_error;
+        socklen_t len = sizeof so_error;
+        // cout << "ERROR CHECK" << endl;
+        getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+
+        if (so_error == 0) {
+            long arg = fcntl(sockfd, F_GETFL, NULL); 
+            arg &= (~O_NONBLOCK); 
+            fcntl(sockfd, F_SETFL, arg); 
+            // cout << "END CONNECT" << endl;
+            return sockfd;
+        }
+    }
+    // cout << "ERROR CONENCT< RETRYING" << endl;
+    close(sockfd);
+    return createPeerConnection(server);
 }
 
 Peer initPeerFromAddrPort(const char* addr, const char* port) {
@@ -397,10 +438,12 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
             peers.push_back(initPeerFromAddrPort(addr, port));
         }
     }
-
     if(shutdown(peerfd, SHUT_RDWR) < 0) {
         perror("attempt at shuting down connection failed"); 
         exit(1);
+    }
+    if(close(peerfd) < 0) {
+        perror("close(peerfd)"); 
     }
 }
 
@@ -432,6 +475,9 @@ void handleGetPeers(int sockfd, vector<Peer> &peers) {
         if(shutdown(peerfd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
+        }
+        if(close(peerfd) < 0) {
+            perror("close(peerfd)"); 
         }
         allSuccess = allSuccess && success == SUCCESS;
         ret << peers[i].getAddressPort() << " ";
@@ -533,6 +579,9 @@ void transferContent(Peer &from, Peer &to, Peer & me) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+        if(close(fromfd) < 0) {
+            perror("close(peerfd)"); 
+        }
     } else {
         uint32_t key = me.getFirstKey();
         contentKeyValue = encodeKeyValue(key, me.get(key));
@@ -560,6 +609,9 @@ void transferContent(Peer &from, Peer &to, Peer & me) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+        if(close(tofd) < 0) {
+            perror("close(peerfd)"); 
+        }
     } else {
         uint32_t key;
         string value;
@@ -569,6 +621,7 @@ void transferContent(Peer &from, Peer &to, Peer & me) {
 }
 
 void redistribute(vector<Peer> &peers, bool includeSelf) {
+    // cout << "REDISTRIBUTING" << endl;
     // Total load
     uint32_t sum = 0;
     uint32_t sizes [peers.size()];
@@ -576,6 +629,7 @@ void redistribute(vector<Peer> &peers, bool includeSelf) {
     sizes[0] = peers[0].getLoad();
 
     for(size_t i = 1; i< peers.size(); i++) {
+        // cout << "GETTING LOAD" << endl;
         char type = GET_LOAD;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
 
@@ -594,6 +648,9 @@ void redistribute(vector<Peer> &peers, bool includeSelf) {
         if(shutdown(peerfd, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
+        }
+        if(close(peerfd) < 0) {
+            perror("close(peerfd)"); 
         }
 
         sizes[i] = load;
@@ -638,7 +695,9 @@ void allkeys(int sockfd, Peer& me) {
 }
 
 void removePeer(int sockfd, vector<Peer>& peers) {
+    // cout << "Removing peer " << endl;
     for(uint32_t i=1; i<peers.size(); i++) {
+        // cout << "Telling peer " << i << " to remove me from their vector" << endl;
         char type = ERASE_REMOVED_PEER;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
 
@@ -646,9 +705,9 @@ void removePeer(int sockfd, vector<Peer>& peers) {
             perror("could not send eraseRemovedPeer request from peer to peer");
             exit(1);
         }
-
+        // cout << "SENT TYPE" << endl;
         sendcontent(peerfd, peers[0].getAddressPort().c_str());
-
+        // cout << "SENT CONTENT" << endl;
         char success;
         if( recv(peerfd, &success, 1, 0) < 0 ) {
             perror("could not get peer force delete confirmation"); 
@@ -659,9 +718,13 @@ void removePeer(int sockfd, vector<Peer>& peers) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+        if(close(peerfd) < 0) {
+            perror("close(peerfd)"); 
+        }
     }
 
     while (peers[0].getLoad() > 0 && peers.size() > 1) {
+        // cout << "Sending all my content to my neighbour peer. Left: " << peers[0].getLoad() << endl;
         int peerfd = createPeerConnection(peers[1].getSocketAddr());
         char type = RECEIVE_TRANSFER_CONTENT;
 
@@ -682,6 +745,9 @@ void removePeer(int sockfd, vector<Peer>& peers) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+        if(close(peerfd) < 0) {
+            perror("close(peerfd)"); 
+        }
     }
 
     if (peers.size() > 1) {
@@ -689,10 +755,12 @@ void removePeer(int sockfd, vector<Peer>& peers) {
     }
 
     char success = 'y';
+    // cout << "Notifying removepeer success" << endl;
     if (send(sockfd, &success, 1, 0) < 0) {
         perror("could not send remove peer confirmation"); 
         exit(1);
     }
+    // cout << "DONE" << endl;
     return;
 }
 
@@ -792,6 +860,9 @@ void removecontent(int sockfd, vector<Peer> &peers) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
         }
+        if(close(peerfd) < 0) {
+            perror("close(child, sockfd)"); 
+        }
 
         if(success == SUCCESS) {
             redistribute(peers, true);
@@ -823,6 +894,7 @@ void checkoutcontent(int sockfd, uint32_t key, Peer &me) {
         sendcontent(sockfd, me.get(key).c_str());
     }
 }
+
 void lookupcontent(int sockfd, vector<Peer> &peers) {
     uint32_t nkey;
     if(recv(sockfd, &nkey, sizeof(nkey), 0) < 0) {
@@ -836,18 +908,20 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
     }
 
     for(uint32_t i=1; i<peers.size(); i++)  {
-
+        // cout << "looking at peer for content " << peers[i].getAddressPort() << endl;
         char type = LOOKUP_F;
         int peerfd = createPeerConnection(peers[i].getSocketAddr());
         if( send(peerfd, &type, 1, 0) < 0 ) {
             perror("could not send lookup content request from peer to peer");
             exit(1);
         }
+        // cout << "SENT type" << endl;
 
         if(send(peerfd, &nkey, sizeof(nkey), 0) != sizeof(nkey)) {
             perror("could not send add content key back");
             exit(1);
         }
+        // cout << "SENT KEY" << endl;
 
         char success;
         if( recv(peerfd, &success, 1, 0) < 0 ) {
@@ -855,19 +929,30 @@ void lookupcontent(int sockfd, vector<Peer> &peers) {
             exit(1);
         }
 
-        if(shutdown(peerfd, SHUT_RDWR) < 0) {
-            perror("attempt at shuting down connection failed"); 
-            exit(1);
-        }
-
         if(success == SUCCESS) {
+            // cout << "found content " << endl;
             if(send(sockfd, &success, 1, 0) < 0) {
                 perror("could not send client lookup content confirmation"); 
                 exit(1);
             }
             string content = recvcontent(peerfd);
+            if(shutdown(peerfd, SHUT_RDWR) < 0) {
+                perror("attempt at shuting down connection failed"); 
+                exit(1);
+            }
+            if(close(peerfd) < 0) {
+                perror("close(peerfd)"); 
+            }
             sendcontent(sockfd, content.c_str());
             return;
+        }
+
+        if(shutdown(peerfd, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
+        if(close(peerfd) < 0) {
+            perror("close(peerfd)"); 
         }
     }
 
