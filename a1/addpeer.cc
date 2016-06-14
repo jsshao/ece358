@@ -176,8 +176,8 @@ Peer initialize() {
 
 void printPeers(vector<Peer> & peers) {
     cout << "Printing peers of peer" << endl;
-    for (Peer &p : peers) {
-        cout << p.getAddressPort() << endl;
+    for (uint32_t i = 0; i < peers.size(); i++) {
+        cout << peers[i].getAddressPort() << endl;
     }
 }
 
@@ -386,7 +386,8 @@ void updatePeersInfo(const char* addr, const char* port, vector<Peer> &peers) {
 
         vector<string> peerStrings;
         splitString(peersString, ' ', peerStrings);
-        for (string newPeerString: peerStrings) {
+        for (uint32_t i = 0; i < peersString.size(); i++) {
+            string newPeerString = peerStrings[i];
             vector<string> addrport;
             splitString(newPeerString, ':', addrport);
 
