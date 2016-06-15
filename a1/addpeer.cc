@@ -160,6 +160,10 @@ Peer initialize() {
     memcpy(&(server.sin_addr), &srvip, sizeof(struct in_addr)); // From above
     server.sin_port = 0; // Allow OS to pick port
 
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
     if (mybind(sockfd, &server) < 0) {
         perror("bind"); 
         exit(-1);
@@ -171,9 +175,7 @@ Peer initialize() {
         exit(-1);
     }
 
-    int enable = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+
 
     cout << inet_ntoa(server.sin_addr) << " " << ntohs(server.sin_port) << endl;
     return Peer(server, sockfd);
@@ -287,9 +289,13 @@ int main(int argc, char* argv[]) {
                 addcontent(connectedsock, peers[0], peers, true);
                 break;
         }
+
         if(shutdown(connectedsock, SHUT_RDWR) < 0) {
             perror("attempt at shuting down connection failed"); 
             exit(1);
+        }
+        if(close(connectedsock) < 0) {
+            perror("close(child, sockfd)"); 
         }
     }
 
@@ -323,6 +329,11 @@ int createPeerConnection(struct sockaddr_in server) {
     client.sin_family = AF_INET;
     client.sin_addr.s_addr = htonl(INADDR_ANY);
     client.sin_port = 0; // Let OS choose.
+
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
     if(mybind(sockfd, &client) < 0) {
         perror("could not bind socket"); 
         exit(1);
@@ -333,10 +344,6 @@ int createPeerConnection(struct sockaddr_in server) {
         perror("getsockname"); 
         exit(1);
     }
-
-    int enable = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-       perror("setsockopt(SO_REUSEADDR) failed");
 
     fd_set set;
     FD_ZERO(&set);
