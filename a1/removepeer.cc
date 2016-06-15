@@ -45,6 +45,12 @@ int main(int argc, char* argv[]) {
     client.sin_family = AF_INET;
     client.sin_addr.s_addr = htonl(INADDR_ANY);
     client.sin_port = 0; // Let OS choose.
+
+    
+    int enable = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+       perror("setsockopt(SO_REUSEADDR) failed");
+
     if (mybind(sockfd, &client) < 0) {
         perror("could not bind socket"); 
         return -1;
@@ -56,10 +62,6 @@ int main(int argc, char* argv[]) {
         perror("getsockname"); 
         return -1;
     }
-
-    int enable = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-       perror("setsockopt(SO_REUSEADDR) failed");
 
     //printf("client associated with %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
     // printf("Trying to connect to %s %d...\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
