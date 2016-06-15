@@ -330,9 +330,9 @@ int createPeerConnection(struct sockaddr_in server) {
     client.sin_addr.s_addr = htonl(INADDR_ANY);
     client.sin_port = 0; // Let OS choose.
 
-    int enable = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+    // int enable = 1;
+    // if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    //     perror("setsockopt(SO_REUSEADDR) failed");
 
     if(mybind(sockfd, &client) < 0) {
         perror("could not bind socket"); 
