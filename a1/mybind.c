@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define PORT_RANGE_LO 10000
 #define PORT_RANGE_HI 11000
@@ -26,39 +27,45 @@
  * returns int -- negative return means an error occurred, else the call succeeded.
  */
 int mybind(int sockfd, struct sockaddr_in *addr) {
-    if(sockfd < 1) {
-        fprintf(stderr, "mybind(): sockfd has invalid value %d\n", sockfd);
-        return -1;
-    }
+        if(sockfd < 1) {
+            fprintf(stderr, "mybind(): sockfd has invalid value %d\n", sockfd);
+            return -1;
+        }
 
-    if(addr == NULL) {
-        fprintf(stderr, "mybind(): addr is NULL\n");
-        return -1;
-    }
+        if(addr == NULL) {
+            fprintf(stderr, "mybind(): addr is NULL\n");
+            return -1;
+        }
 
-    if(addr->sin_port != 0) {
-        fprintf(stderr, "mybind(): addr->sin_port is non-zero. Perhaps you want bind() instead?\n");
-        return -1;
-    }
+        if(addr->sin_port != 0) {
+            fprintf(stderr, "mybind(): addr->sin_port is non-zero. Perhaps you want bind() instead?\n");
+            return -1;
+        }
 
-    unsigned short p;
-    for(p = PORT_RANGE_LO; p <= PORT_RANGE_HI; p++) {
-        addr->sin_port = htons(p);
-        int b = bind(sockfd, (const struct sockaddr *)addr, sizeof(struct sockaddr_in));
-        if(b < 0) {
+    for (int i = 0; i < 100; i++) {
+        unsigned short p;
+        for(p = PORT_RANGE_LO; p <= PORT_RANGE_HI; p++) {
+            addr->sin_port = htons(p);
+            int b = bind(sockfd, (const struct sockaddr *)addr, sizeof(struct sockaddr_in));
+            if(b < 0) {
+                continue;
+            }
+            else {
+                break;
+            }
+        }
+
+        if(p > PORT_RANGE_HI) {
+            //fprintf(stderr, "mybind(): all bind() attempts failed. No port available...?\n");
+            if (i == 99)
+                return -1;
+            sleep(1);
             continue;
         }
-        else {
-            break;
-        }
-    }
 
-    if(p > PORT_RANGE_HI) {
-        fprintf(stderr, "mybind(): all bind() attempts failed. No port available...?\n");
-        return -1;
+        break;
+        /* Note: upon successful return, addr->sin_port contains, in network byte order, the
+         * port to which we successfully bound. */
     }
-
-    /* Note: upon successful return, addr->sin_port contains, in network byte order, the
-     * port to which we successfully bound. */
     return 0;
 }
