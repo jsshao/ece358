@@ -287,6 +287,10 @@ int main(int argc, char* argv[]) {
                 addcontent(connectedsock, peers[0], peers, true);
                 break;
         }
+        if(shutdown(connectedsock, SHUT_RDWR) < 0) {
+            perror("attempt at shuting down connection failed"); 
+            exit(1);
+        }
     }
 
     REMOVE_PEER:
