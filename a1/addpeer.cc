@@ -160,9 +160,9 @@ Peer initialize() {
     memcpy(&(server.sin_addr), &srvip, sizeof(struct in_addr)); // From above
     server.sin_port = 0; // Allow OS to pick port
 
-    int enable = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+    // int enable = 1;
+    // if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    //     perror("setsockopt(SO_REUSEADDR) failed");
 
     if (mybind(sockfd, &server) < 0) {
         perror("bind"); 
