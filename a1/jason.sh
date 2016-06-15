@@ -29,12 +29,17 @@ C1KEY=`sed -n '2p' $TMPFILE`
 ./addpeer $PEER1
 ./addpeer $PEER1
 ./addpeer $PEER1
-for i in `seq 1 100`;
+for i in `seq 1 1000`;
 do
     echo $i
     ./addpeer $PEER1 > jason
     PEER=`sed -n '1p' jason`
+    ./addcontent $PEER "Jason" > jason2
+    ./addcontent $PEER "FRANK"
     ./removepeer $PEER
+    KEY=`sed -n '1p' jason2`
+    ./lookupcontent $PEER1 $KEY
+    ./removecontent $PEER1 $KEY
 done  
 ./addpeer $PEER1
 
