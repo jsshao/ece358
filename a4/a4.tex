@@ -13,7 +13,7 @@
 pdfsubject={University of Waterloo, ECE 358},%
 pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
-\title{ECE 358 Assignment }
+\title{ECE 358 Assignment 4}
 \author{Jason Shao, Lihao Luo, Minghao Lu}
 \date{June 23, 2016}
 
@@ -28,8 +28,15 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
 \begin{enumerate}
 	\item %Q1
-	\item %Q2
-	\item %Q3
+	\item %Q2 Jason
+	During the first hop, the MTU is 1000 bytes, but the initial packet is 20 + 1800 = 1820 bytes. Therefore, after fragmentation, $f_1$ will have 20 bytes of header and 976 bytes of payload since the offset has to be a multiple of 8 while maximizing the total packet size to less than 1000 bytes.  Similarly, $f_2$ will have a header of 20 bytes and payload of the remaining 1800 - 976 = 824 bytes (offset of 122). \\ \\ Afterwards, $f_1$ undergoes fragmentation again with MTU of 500 bytes. The first part, $f_1.1$ will have 20 bytes for the header and 480 bytes for payload. The second part, $f_1.2$ will have 20 bytes for the header and 480 bytes for payload (offset of 60). The third part, $f_1.3$ will have 20 bytes for the header and 976 - 480 - 480 = 16 bytes for the payload (offset of 120). \\ \\ In conclusion, the final fragments received at the destination in order of offset is:
+	\begin{itemize}
+		\item First fragment: ID = abcd, More fragments = 1, Fragment offset = 0, Total length = 500 bytes (480 bytes of payload)
+		\item Second fragment: ID = abcd, More fragments = 1, Fragment offset = 60, Total length = 500 bytes (480 bytes of payload)
+		\item Third fragment: ID = abcd, More fragments = 1, Fragment offset = 120, Total length = 36 bytes (16 bytes of payload)
+		\item Fourth fragment: ID = abcd, More fragments = 0, Fragment offset = 122, Total length = 844 bytes (824 bytes of payload)
+	\end{itemize}
+	\item %Q3 Jason
 	\item %Q4 Frank
         Like the assignment suggested, we adopt two premises. 
         (i) at the point in time the slide considers, for every $a \in N'$, $D(a) = d(a)$. 
@@ -73,7 +80,7 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
         must be false.
 
 	\item %Q6 Frank
-	\item %Q7
+	\item %Q7 Jason
 
 \end{enumerate}
 \end{document}
