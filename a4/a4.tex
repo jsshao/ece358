@@ -27,7 +27,53 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 \newcommand{\pc}[1]{\mbox{\textbf{#1}}} % pseudocode
 
 \begin{enumerate}
-	\item %Q1
+	 \item \begin{enumerate}
+        \item \begin{enumerate}[(A)]
+            \item 1.2.3.0/30
+            \item 1.2.3.1/30
+            \item 1.2.3.2/30
+            \item 1.2.3.3/30
+            \item 1.2.3.4/30
+            \item 1.2.3.5/30
+            \item 1.2.3.6/30
+            \item 1.2.3.7/30
+            \item 10.0.0.0/16
+            \item 10.0.0.1/16
+            \item 1.2.3.8/30
+            \item 1.2.3.9/30
+            \item 1.2.3.10/30
+            \item 1.2.3.11/30
+            \item 10.0.0.2/16
+            \item 10.0.0.3/16
+        \end{enumerate}
+    \item \begin{enumerate}[(i)]
+        \item
+            \begin{tabular}{ |c|c|c| } 
+             \hline
+             Destination & Next Hop & Interface \\ 
+             \hline
+             1.2.3.4/30 & myself & F \\
+             \hline
+             1.2.3.0/30 & myself & C \\
+             \hline
+             0.0.0.0/0 & 1.2.3.1 & C \\
+             \hline
+            \end{tabular} 
+        \item
+            \begin{tabular}{ |c|c|c| } 
+             \hline
+             Destination & Next Hop & Interface \\ 
+             \hline
+             1.2.3.8/30 & myself & L \\
+             \hline
+             1.2.3.0/30 & myself & D \\
+             \hline
+             0.0.0.0/0 & 1.2.3.1 & D \\
+             \hline
+            \end{tabular} 
+        \end{enumerate}
+    \end{enumerate}
+    
 	\item %Q2 Jason
 	During the first hop, the MTU is 1000 bytes, but the initial packet is 20 + 1800 = 1820 bytes. Therefore, after fragmentation, $f_1$ will have 20 bytes of header and 976 bytes of payload since the offset has to be a multiple of 8 while maximizing the total packet size to less than 1000 bytes.  Similarly, $f_2$ will have a header of 20 bytes and payload of the remaining 1800 - 976 = 824 bytes (offset of 122). \\ \\ Afterwards, $f_1$ undergoes fragmentation again with MTU of 500 bytes. The first part, $f_1.1$ will have 20 bytes for the header and 480 bytes for payload. The second part, $f_1.2$ will have 20 bytes for the header and 480 bytes for payload (offset of 60). The third part, $f_1.3$ will have 20 bytes for the header and 976 - 480 - 480 = 16 bytes for the payload (offset of 120). \\ \\ In conclusion, the final fragments received at the destination in order of offset is:
 	\begin{itemize}
