@@ -37,10 +37,17 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 		\item Fourth fragment: ID = abcd, More fragments = 0, Fragment offset = 122, Total length = 844 bytes (824 bytes of payload)
 	\end{itemize}
 	\item %Q3 Jason
+	\begin{enumerate}
+		\item The header checksum is not necessarily the same, because the TTL field is decremented at each hop, so the header checksum is recomputed at each hop (hence, a different value than the initial checksum).
+		\item I do not concur, even if an odd number of bits are flipped, it is not guaranteed to detect an error. A counter-example is 01 FF (checksum FE) because if you flip all nine 1-bits into 00, the checksum is still FE.
+		\item Yes, the UDP checksum at the destination should match that of the source because UDP checksums are end-to-end and is not modified in transit (except when it passes through NAT). 
+		\item No, the converse is "if the MTU is supported, you will always get a response". This is not necessarily true , because there are other reasons for no response other than just a non-supported MTU (such as network congestion).
+	\end{enumerate}
 	\item %Q4 Frank
 	\item %Q5 Frank
 	\item %Q6 Frank
 	\item %Q7 Jason
+	
 
 \end{enumerate}
 \end{document}
