@@ -31,7 +31,47 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 	\item %Q2
 	\item %Q3
 	\item %Q4 Frank
+        Like the assignment suggested, we adopt two premises. 
+        (i) at the point in time the slide considers, for every $a \in N'$, $D(a) = d(a)$. 
+        (ii) The path $u \rightsquigarrow y$ in the picture, $u \rightsquigarrow x \rightarrow y$,
+        is a cheapest path from u to y. Let's call this path $p_1$.\\
+
+
+        First we prove $D(y) \leq cost(p_1)$. By definition $cost(p_1) = d(x) + c(x,y)$. Since $x \in N'$, 
+        by premise (i), $cost(p_1) = D(x) + c(x,y)$. When x was added to $N'$, since y is adjacent to x,
+        the algorithm performs $D(y) = min\{D(y), D(x)+c(x,y)\}$, and since the only operations performed on $D(y)$ is to assign
+        it a min of its old value and another value, $D(y)$ never increases. Thus $D(y) \leq D(x) + c(x,y)$,
+        which combined with $cost(p_1) = D(x) + c(x,y)$, implies $D(y) \leq cost(p_1)$. \\
+
+        Suppose $D(y) \neq d(y)$. Since $d(y)$ is the cheapest cost from u to y, and $D(y)$ is the 
+        cost of a path from u to y, $D(y) \geq d(y)$. Since $D(y) \neq d(y)$, $D(y) > d(y)$. 
+        Since $d(y) < D(y)$ and $D(y) \leq cost(p_1)$, there must be a path from u to y that is cheaper 
+        than $p_1$. But premise (ii) says $p_1$ is a cheapest path from u to y, contradiction. Therefor $D(y) = d(y)$.
+        
+
 	\item %Q5 Frank
+        
+        First we observe $\min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$
+        is at least an upper bound on $d_x(y)$. Let $v_1$ be a neighbour of x that achieves the minimum in
+        $\min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$, i.e $c(x,v_1)+d_{v_1}(y) = \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$.  
+        Let $v_1 \rightsquigarrow y$ be a minimum path from $v_1$
+        to y, i.e. $cost(v_1 \rightsquigarrow y) = d_{v_1}(y)$. Observe $x \rightarrow v_1 \rightsquigarrow y$ is a path from x to y. Moreover
+        $cost(x \rightarrow v_1 \rightsquigarrow y) = c(x, v_1) + cost(v_1 \rightsquigarrow y) = c(x, v_1) + d_{v_1}(y) =
+        \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\})$.
+        Since $d_x(y)$ is the cost of the cheapest path from x to y, 
+        $d_x(y) \leq cost(x,v_1 \rightsquigarrow y) = \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$. \\
+
+        Suppose $d_x(y) = \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$ is not true, since we proved
+        $d_x(y) \leq \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$, it must be the case 
+        $d_x(y) < \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$.
+        Let $p=x,v_1,v_2,...v_k,y$ be a cheapest path from x to y, then  
+        $cost(p) = c(x,v_1) + cost(v_1, v_2,...,v_k,y) < \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$. 
+        In particular, $c(x, v_1) + cost(v_1,...,v_k,y) < c(x, v_1) + d_{v_1}(y)$,
+        which in turn implies $cost(v_1,...,v_k,y) < d_{v_1}(y)$.
+        Since $v_1,...,v_k,y$ is a path from $v_1$ to y and $d_{v_1}(y)$ is the cost of the cheapest path from 
+        $v_1$ to y, this is a contradiction. Therefor our assumption, $d_x(y) = \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$ is not true,
+        must be false.
+
 	\item %Q6 Frank
 	\item %Q7
 
