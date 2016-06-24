@@ -80,6 +80,33 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
         must be false.
 
 	\item %Q6 Frank
+
+        The number of nodes in G.
+
+        Let $v_1,...,v_k$ be the cheapest path between $v_1,...,v_k$.  First we observe
+        $\forall i \leq k, v_1, v_2, ..., v_i$ is the cheapest path between $v_1$ and $v_i$.
+        Suppose its not, then there must be path $v_1,w_1,w_2,...,v_i$ that's cheaper, but then
+        $v_1,w_1,w_2,...,v_i,v_{i+1},v_{i+2},...,v_k$ would be cheaper than $v_1,v_2,...,v_k$.
+        Since we defined $v_1,v_2,...,v_k$ as the cheapest path between $v_1$ and $v_k$, this is a
+        contradiction. Thus $\forall i \leq k: v_1, v_2, ..., v_i$ must be the cheapest path between $v_1$ and $v_i$. \\
+
+        (For the following section, by "know" the cheapest path I mean know the next hop and total cost) \\
+
+        In an iteration, if $v_i$ doesn't know its cheapest path from $v_1$ yet, since $v_i$ updates its guess of the cheapest
+        from $v_1$ path based only on its neighbours guess of cheapest path from $v_1$,
+        $v_i$ would and would only learn its true cheapest path from $v_1$ if in the last 
+        iteration $v_{i-1}$ knows its true cheapest path from $v_1$. Since by the end of the first iteration, only
+        $v_1$ will know its distance for $v_1$, it takes a total of i iterations for $v_i$ to learn
+        its cheapest path from $v_1$. Thus it takes k iterations for $v_k$ to learn its cheapest path
+        from $v_1$.
+
+        It follows that the number of iterations for everyone to know their cheapest path from everyone else 
+        will be the number of nodes in the longest path between any two nodes where that path is also the 
+        cheapest path between the two nodes. Such a path in a weighted, connected, undirected graph G
+        could contain all the nodes in G.
+
+
+
 	\item %Q7 Jason
 
 \end{enumerate}
