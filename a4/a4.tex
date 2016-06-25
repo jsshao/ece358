@@ -111,7 +111,7 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
 	\item %Q5 Frank
         
-        First we observe $\min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}666$
+        First we observe $\min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$
         is at least an upper bound on $d_x(y)$. Let $v_1$ be a neighbour of x that achieves the minimum in
         $\min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$, i.e $c(x,v_1)+d_{v_1}(y) = \min_{v \in neigh(x)}\{c(x,v) + d_v(y)\}$.  
         Let $v_1 \rightsquigarrow y$ be a minimum path from $v_1$
@@ -134,14 +134,14 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
 	\item %Q6 Frank
 
-        The number of iterations is the length of a longest of cheapest paths between any two nodes.
+        The number of iterations is the length of a longest of: cheapest paths between any two nodes.
 
-        Let $v_1,...,v_k$ be the shortest path between $v_1,...,v_k$ that $v_k$ evetually converges to.  
+        Let $v_1,...,v_k$ be the cheapest path between $v_1$, $v_k$.
         First we observe $\forall i \leq k: v_1, v_2, ..., v_i$ is the cheapest path between $v_1$ and $v_i$.
-        Suppose its not, then there must be path $v_1,w_1,w_2,...,v_i$ that's shorter , but then \\
-        $v_1,w_1,w_2,...,v_i,v_{i+1},v_{i+2},...,v_k$ would be either shorter than $v_1,v_2,...,v_k$.
-        Since we defined $v_1,v_2,...,v_k$ as the shortest path between $v_1$ and $v_k$, this is a
-        contradiction. Thus $\forall i \leq k: v_1, v_2, ..., v_i$ must be the shortest path between
+        Suppose its not, then there must be path $v_1,w_1,w_2,...,v_i$ that's cheaper , but then
+        $v_1,w_1,w_2,...,v_i,v_{i+1},v_{i+2},...,v_k$ would be cheaper than $v_1,v_2,...,v_k$.
+        Since we defined $v_1,v_2,...,v_k$ as the cheapest path between $v_1$ and $v_k$, this is a
+        contradiction. Thus $\forall i \leq k: v_1, v_2, ..., v_i$ must be the cheapest path between
         $v_1$ and $v_i$. \\
 
         (For the following section, by "know the cheapest path" I mean know the next hop and total cost) \\
@@ -156,8 +156,8 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
         It follows that the number of iterations for everyone to know their cheapest path from everyone else 
         will be the number of nodes in the longest path between any two nodes where that path is also the 
-        cheapest path between the two nodes. It's worth noting by the definition of a path, the length is
-        bounded by the number of vertices in G, and if G is a linked list, this is simply the number of
+        cheapest path between the two nodes. It's worth noting by the definition of a path(no repeating nodes), 
+        the length is bounded by the number of nodes in G, and if G is a linked list, this is simply the number of
         verticies in G.
 
 
