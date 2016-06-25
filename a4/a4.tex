@@ -8,7 +8,6 @@
 \usepackage{enumerate}
 \usepackage{amssymb}
 \usepackage{amsfonts}
-\usepackage{pdfpages}
 \usepackage[normalem]{ulem}
 \usepackage[pdftitle={ECE 358 Assignment 4},%
 pdfsubject={University of Waterloo, ECE 358},%
@@ -31,21 +30,21 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 	 \item \begin{enumerate}
         \item \begin{enumerate}[(A)]
             \item 1.2.3.0/30
-            \item 1.2.3.1/30
-            \item 1.2.3.2/30
-            \item 1.2.3.3/30
+            \item 1.2.3.1
+            \item 1.2.3.2
+            \item 1.2.3.3
             \item 1.2.3.4/30
-            \item 1.2.3.5/30
-            \item 1.2.3.6/30
-            \item 1.2.3.7/30
-            \item 10.0.0.0/16
-            \item 10.0.0.1/16
+            \item 1.2.3.5
+            \item 1.2.3.6
+            \item 1.2.3.7
+            \item 10.1.0.0/16
+            \item 10.2.0.0/16
             \item 1.2.3.8/30
-            \item 1.2.3.9/30
-            \item 1.2.3.10/30
-            \item 1.2.3.11/30
-            \item 10.0.0.2/16
-            \item 10.0.0.3/16
+            \item 1.2.3.9
+            \item 1.2.3.10
+            \item 1.2.3.11
+            \item 10.3.0.0/16
+            \item 10.4.0.0/16
         \end{enumerate}
     \item \begin{enumerate}[(i)]
         \item
@@ -88,7 +87,7 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 		\item The header checksum is not necessarily the same, because the TTL field is decremented at each hop, so the header checksum is recomputed at each hop (hence, a different value than the initial checksum).
 		\item I do not concur, even if an odd number of bits are flipped, it is not guaranteed to detect an error. A counter-example is 01 FF (checksum FE) because if you flip all nine 1-bits into 0000, the checksum is still FE.
 		\item Yes, the UDP checksum at the destination should match that of the source because UDP checksums are end-to-end and is not modified in transit (except when it passes through NAT). 
-		\item No, the converse is "if the MTU is supported, you will always get a response" or "if you don't get a response, the MTU is not supported". This is not necessarily true, because there are other reasons for no response other than just a non-supported MTU (such as network congestion or TTL exceeded).
+		\item No, the converse is "if the MTU is supported, you will always get a response". This is not necessarily true , because there are other reasons for no response other than just a non-supported MTU (such as network congestion).
 	\end{enumerate}
 	\item %Q4 Frank
         Like the assignment suggested, we adopt two premises. 
@@ -163,24 +162,7 @@ pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
 
 
 	\item %Q7 Jason
-	\pagebreak
-	In figure 1 below, there are 5 nodes in the undirected graph: A, B, C, D, E. The solid lines represent edges and the associated number is the weight of that undirected edge. The dashed line shows that node's minimum weight path to node E. The direction of the dashed line shows the next hop its current min path. 
-	\begin{enumerate}[i)]
-	\item The first diagram is the initial graph.
-	\item The event that causes the Distance Vector protocol to run is the change of weight on edge AE from 1 to 100. Node A is the first to realize this change. It is shown in the second diagram in the figure below.
-	\item Diagram 3 - 7 shows one iteration the routing loop, and the chain propagation of shortest path entry updates continues.
-	\end{enumerate}
-	\pagebreak 
-	\begin{figure}[!ht]
-    \centering
-    \includepdf[pages={1},scale=0.75]{Poison_Reverse.pdf}
-    \caption{Example of routing loop of nodes A, B, C, D}
-    \end{figure}
-    \pagebreak
-	\begin{figure}[!ht]
-    \centering
-    \includepdf[pages={2},scale=0.75]{Poison_Reverse.pdf}
-    %\caption{Example of routing loop of nodes A, B, C, D}
-    \end{figure}
+	
+
 \end{enumerate}
 \end{document}
