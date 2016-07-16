@@ -36,5 +36,14 @@ First, the AS that contains $A$ ($AS_A$) learns from the inter-AS protocol that 
 The two connecting subnets are not part of X's responsibility. X as
 a client shouldn't have to worry about them. The subnet X bought and uses X does have to advertise.
 
+\item
+\begin{enumerate}
+    \item In controlled flooding, the node caches the ID of the packet that it forwards to prevent forwarding it again. A node, $v$, may receive deg($v$) copies of the same packet in the worst case. This because $G$ is connected, so we know every neighbour of $v$ will eventually receive the packet, and when they do, they will forward it to $v$. Therefore, the worst case number of copies a node may receive is deg($v$) which is bounded by $|V|-1$.  \\ \\
+    The total number of copies forwarded throughout the network would then be $\sum deg(v) = 2|E|$, where $|E|$ is the number of edges in the graph. \\ 
+    \item In reverse path forwarding, the node only forwards a packet if it was received from the shortest path to the source. A node, $v$, may receive deg($v$) copies of the same packet in the worst case. This can happen if $v$ is farther away from the source than all its neighbours, so when all the neighbours first receive the packet, all the neighbours will forward the copied packet to $v$. Therefore, the worst case number of copies a node may receive is deg($v$) which is bounded by $|V|-1$. \\ \\   
+    The total number of copies forwarded throughout the network is more interesting to analyze. Each node will only forward the packet when it is received from the shortest path to the source. Then, there is only one edge for each node (except the source node) where the node does not forward back the packet. This accounts for a total of $|V| - 1$ packets sent from the shortest path. The remaining edges in the network will account for 2 packets per edge because neither node was the other's shortest path, so they will both forward a copy to each other. This results in a total of $|V| - 1 + 2(|E| - |V| + 1) = 2|E| - |V| + 1$ packets forwarded in total.  \\ 
+    \item The minimum spanning tree approach would be to construct a MST and only broadcast to the outgoing edges in the MST. A node $v$ may receive 1 copy of the packet in the worst case. This is because in a minimum spanning tree, there is exactly one path between any two nodes. So between the source and any node $v$, there is exactly one parent node that will deliver the packet to $v$, and ONLY that parent will ever deliver a packet to $v$. Therefore, the worst case number of copies a node may receive is 1.\\ \\
+    The total number of copies forwarded throughout the network would be $|V| - 1$ where $|V|$ is the number of nodes in the network. This is because there are $V$ nodes, and each of them except the source will be delivered a copy of the packet. This makes sense because the number of edges in a minimum spanning tree is also $|V| - 1$.
+\end{enumerate}
 \end{enumerate}
 \end{document}
