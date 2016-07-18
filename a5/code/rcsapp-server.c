@@ -22,7 +22,7 @@
 #include "net_util.h"
 #include "rcs.h"
 
-#if 0
+#if 1
 #define _DEBUG_
 #endif
 

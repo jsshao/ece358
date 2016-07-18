@@ -9,108 +9,126 @@
 #define SOCKETS 5000
 
 struct RcsSocket {
-	int ucpSocket;
-	struct sockaddr_in addr;
-	struct sockaddr_in conn;
+    bool inUse;
+    int ucpSocket;
+    struct sockaddr_in local;
+    struct sockaddr_in remote;
+
+    RcsSocket() {
+        inUse = false;
+    }
 };
 
-struct RcsSocket* rcsSockets[5000] = {0};
+struct RcsSocket rcsSockets[5000];
 
 int rcsSocket() 
 {
-	for(int i=0; i<100; i++) {
-		if(rcsSockets[i] == NULL) {
-			int sockfd = ucpSocket();
-			if(sockfd < 0)
-				return -1;
-			rcsSockets[i] = malloc(sizeof(struct RcsSocket));
-			rcsSockets[i]->ucpSocket = sockfd;
-			return i;
-		}
-	}
-	return -1;
+    for(int i=0; i<100; i++) {
+        RcsSocket &rs = rcsSockets[i];
+        if(!rs.inUse) {
+            int sockfd = ucpSocket();
+            if(sockfd < 0)
+                return -1;
+
+            int optval = 1;
+            setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
+            rs.ucpSocket = sockfd;
+            rs.inUse = true;
+            return i;
+        }
+    }
+    return -1;
 }
 
 int rcsBind(int sockfd, struct sockaddr_in *addr) 
 {
-	if(rcsSockets[sockfd] != NULL) {
-		if(ucpBind(rcsSockets[sockfd]->ucpSocket, addr) == 0) {
-			rcsSockets[sockfd]->addr = *addr;
-			return 0;
-		}
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        return ucpBind(rs.ucpSocket, addr);
+    }
+    return -1;
 }
 
 int rcsGetSockName(int sockfd, struct sockaddr_in *addr) 
 {
-	if(rcsSockets[sockfd] != NULL) {
-		*addr =  rcsSockets[sockfd]->addr;
-		return 0;
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        if(ucpGetSockName(sockfd, addr) == 0) {
+            rs.local = *addr;
+            return 0;
+        }
+    }
+    return -1;
 }
 
 int rcsListen(int sockfd)
 {
-	if(rcsSockets[sockfd] != NULL) {
-		return 0;
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        return 0;
+    }
+    return -1;
 }
 
 int rcsAccept(int sockfd, struct sockaddr_in *addr)
 {
-	if(rcsSockets[sockfd] != NULL) {
-		for(int i=0; i<100; i++) {
-			if(rcsSockets[i] == NULL) {
-				char buf[BUFLEN];
-
-				ucpRecvFrom(rcsSockets[sockfd]->ucpSocket, buf, BUFLEN-1, addr);
-				rcsSockets[i] = malloc(sizeof(struct RcsSocket));
-				*rcsSockets[i] = *rcsSockets[sockfd];
-				rcsSockets[i]->conn = *addr;
-				return i;
-			}
-		}
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        for(int i=0; i<100; i++) {
+            RcsSocket &newRs = rcsSockets[i];
+            if(!newRs.inUse) {
+                //need valid handshake
+                char buf[BUFLEN];
+                ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, addr);
+                newRs = rs;
+                newRs.remote = *addr;
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 
 int rcsConnect(int sockfd, const struct sockaddr_in *addr)
 {
-	const char* buf = "connect";
-	if(rcsSockets[sockfd] != NULL) {
-		rcsSockets[sockfd]->conn = *addr;
-		int len = ucpSendTo(rcsSockets[sockfd]->ucpSocket, buf, strlen(buf), addr);
-		if(len >= 0)
-			return 0;
-	}
-	return -1;
+    const char* buf = "remoteect";
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        rs.remote = *addr;
+
+        //need valid handshake
+        int len = ucpSendTo(rs.ucpSocket, buf, strlen(buf), addr);
+        if(len >= 0)
+            return 0;
+    }
+    return -1;
 }
 
 int rcsRecv(int sockfd, void *buf, int len)
 {
-	if(rcsSockets[sockfd] != NULL) {
-		printf("%s", ucpSocket);
-		return ucpRecvFrom(rcsSockets[sockfd]->ucpSocket, buf, len, &(rcsSockets[sockfd]->conn));
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        return ucpRecvFrom(rs.ucpSocket, buf, len, &(rs.remote));
+    }
+    return -1;
 }
 
 int rcsSend(int sockfd, void *buf, int len)
 {
-	if(rcsSockets[sockfd] != NULL) {
-		return ucpSendTo(rcsSockets[sockfd]->ucpSocket, buf, len, &(rcsSockets[sockfd]->conn));
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        return ucpSendTo(rs.ucpSocket, buf, len, &(rs.remote));
+    }
+    return -1;
 }
 
 int rcsClose(int sockfd)
 {
-	if(rcsSockets[sockfd] != NULL) {
-		free(rcsSockets[sockfd]);
-		rcsSockets[sockfd] = NULL;
-	}
-	return -1;
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        rs.inUse = false;
+        return 0;
+    }
+    return -1;
 }

@@ -62,7 +62,8 @@ int ucpSetSockRecvTimeout(int sockfd, int milliSecs)
 
 int ucpSendTo(int sockfd, const void *buf, int len, const struct sockaddr_in *to)
 {
-    const int pDoEvil = 10; /* Chance in 100 that we will do evil */
+    //const int pDoEvil = 10; /* Chance in 100 that we will do evil */
+    const int pDoEvil = 0; /*change back when you have time*/
 
     if(len <= 0) {
 	errno = EINVAL; /* Invalid arg */
