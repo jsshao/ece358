@@ -62,8 +62,8 @@ int ucpSetSockRecvTimeout(int sockfd, int milliSecs)
 
 int ucpSendTo(int sockfd, const void *buf, int len, const struct sockaddr_in *to)
 {
-    //const int pDoEvil = 10; /* Chance in 100 that we will do evil */
-    const int pDoEvil = 0; /*change back when you have time*/
+    const int pDoEvil = 50; /* Chance in 100 that we will do evil */
+    // const int pDoEvil = 0; /*change back when you have time*/
 
     if(len <= 0) {
 	errno = EINVAL; /* Invalid arg */
@@ -75,8 +75,8 @@ int ucpSendTo(int sockfd, const void *buf, int len, const struct sockaddr_in *to
 
     if(get_rand()%100 < pDoEvil) {
 	/* What kind of evil? -- 1 of 3 kinds */
-
 	int evilKind = get_rand()%3;
+        
 	    /* evilKind == 0 -- send only part of the bytes 
 	     *             1 -- corrupt some of the bytes
 	     *             2 -- don't send packet
@@ -94,7 +94,7 @@ int ucpSendTo(int sockfd, const void *buf, int len, const struct sockaddr_in *to
 	    /* Pretend we send all the bytes when we don't */
 	    return len;
 	}
-    }
+    } 
 
     return((int)sendto(sockfd, (const void *)sendBuf, (size_t)len, 0,
 			(const struct sockaddr *)to,

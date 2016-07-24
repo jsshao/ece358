@@ -4,7 +4,7 @@
 
 INCLUDE =
 CC = g++
-CFLAGS = -I$(INCLUDE) -Wall -g  -D_BSD_SOURCE
+CFLAGS = -I$(INCLUDE) -Wall -g  -D_BSD_SOURCE -std=c++0x
 LD = g++
 LDFLAGS = -lpthread
 LDLIBS = 

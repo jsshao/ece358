@@ -24,6 +24,10 @@ using namespace std;
 #define BUFLEN 500
 #define MAXSOCKETS 5000
 
+#define BYTES_CHECKSUM 2
+#define BYTES_SEQ 4
+#define BYTES_ACK 1
+
 struct RcsSocket {
     bool inUse;
 	int seqNum; // fuck it, we're only going to deal with positive seqNum, negative seqNum iff handshake residue
@@ -41,26 +45,58 @@ struct RcsSocket rcsSockets[MAXSOCKETS];
 
 /************** these are dummy implementations, please actually implement these ****************/
 
+int computeCheckSum(const char* buf, int len) {
+    int sum = 0;
+    for (int i = 0; i < len; i+= 2) {				// for each 16-bit segment of the buffer, sum them
+        int num;
+        if (i == len - 1) {
+            memcpy((char*)&num, &buf[i], 1);		// if odd # of these segments, just take the 8 bits
+        } else {
+            memcpy((char*)&num, &buf[i], 2);
+        }
+        
+        sum += num;
+    }
+    
+    sum += sum >> 16;		// compute one's compliment sum (by adding the carry)
+    sum &= 65535;			// remove the carry
+    sum = ~sum;				// take one's compliment
+    sum &= 65535;			// remove padding
+    return sum;
+}
+
 // create and return a checksumed string message
-string makePkt(int seqNum, char* buf, int len) {
-	string s(buf, len);
-	cout<<"make pkt: "<<to_string(seqNum)<<endl;
-	return to_string(seqNum)+s;
+// PACKET IS IN THE FORM [ CHECK_SUM | IS_ACK | SEQUENCE | DATA ]
+string makePkt(int seqNum, char* buf, int len, int isAck = 0) {
+	int totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_ACK + len;
+    char pktBuffer[totalLen];
+    
+    memset(pktBuffer, 0, totalLen);			// initialize packet to all 0s
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_ACK], buf, len);		// set the data
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_ACK], (char*) &seqNum, BYTES_SEQ);		// set the sequence #
+    memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &isAck, BYTES_ACK);				// set the acknowledgement byte
+    
+    int checksum = computeCheckSum(pktBuffer, totalLen);					// compute checksum
+    memcpy(pktBuffer, (char*) &checksum, BYTES_CHECKSUM);					// set checksum
+    
+	return string(pktBuffer, totalLen);
 }
 
 string makeAckPkt(int seqNum) {
-	cout<<"make ack: "<<to_string(seqNum)+"ACK"<<endl;
-	return to_string(seqNum)+"ACK";
+	char empty[0];
+	return makePkt(seqNum, empty, 0, 1);
 }
 
-// make sure to handle ucpRecvFrom timeout, maybe just return empty string?
 string fetchPkt(int sockfd, struct sockaddr_in desiredRemote) {
 	struct sockaddr_in addr;
 	char buf[BUFLEN];
 	int len = ucpRecvFrom(sockfd, buf, BUFLEN-1, &addr);
+
+	// len < 0 handles timeouts. just return empty string
 	if(len < 0 || (addr.sin_addr.s_addr != desiredRemote.sin_addr.s_addr)
 			|| (addr.sin_port != desiredRemote.sin_port)) {
 		if(len >= 0) cout<<"somehow the connection addresses are not matching"<<endl;
+
 		return "";
 	}
 	string s(buf, len);
@@ -68,20 +104,29 @@ string fetchPkt(int sockfd, struct sockaddr_in desiredRemote) {
 }
 
 bool isCorrupt(string s) {
-	return false;
+    int checksum = computeCheckSum(s.c_str(), s.length());
+    cout << "CHECKSUM IS " << checksum << endl;
+	return checksum != 0;
 }
 
 bool isAck(string s) {
-	return s.substr(1) == "ACK";
+	int ackByte = (int)s.c_str()[BYTES_CHECKSUM];
+	return ackByte == 1;
 }
 
 int getSeqNum(string s) {
-	cout<<"get seq num: "<<s[0]-'0'<<"     from string:"<<s<<endl;
-	return s[0]-'0';
+	int seqNum;
+
+    // for(int i=0; i<s.length(); ++i)
+    //     cout << hex << (int)s.c_str()[i] << " ";
+    // cout << endl;
+
+	memcpy((char*)&seqNum, &s.c_str()[BYTES_CHECKSUM + BYTES_ACK], BYTES_SEQ);
+	return seqNum;
 }
 
 string getMessage(string s) {
-	return s.substr(1);
+	return s.substr(BYTES_CHECKSUM + BYTES_ACK + BYTES_SEQ);
 }
 
 /***********************************************************************************************/
@@ -202,6 +247,9 @@ int rcsConnect(int sockfd, const struct sockaddr_in *addr)
     char buf[BUFLEN];
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
+    	if ( ucpSetSockRecvTimeout(rs.ucpSocket, 1000) != 0 ) {
+    		return -1;
+    	}
         rs.remote = *addr;
 
         //need valid handshake
@@ -255,6 +303,7 @@ int rcsRecv(int sockfd, void *buf, int len)
 			rs.seqNum += 1;
 			rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
 
+			cout << "GOT MESSAGE SUCCESSFULLY: " << msg << endl;
 			return msg.length();
 		}
     }
@@ -288,9 +337,8 @@ int rcsSend(int sockfd, void *buf, int len)
 		// receive ack pkt
 		for(;;) {
 			string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
-			cout<<"client: "<<recvPkt<<endl;
+
 			if( recvPkt == "" || isCorrupt(recvPkt) ) {
-				cout<<"wololol"<<endl;
 				ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
 				continue;
 			}
