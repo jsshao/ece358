@@ -1,0 +1,93 @@
+\documentclass[12pt]{article}
+
+\usepackage{mathtools}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumerate}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{pdfpages}
+\usepackage[normalem]{ulem}
+\usepackage[pdftitle={ECE 358 Assignment 7},%
+pdfsubject={University of Waterloo, ECE 358},%
+pdfauthor={Jason Shao, Lihao Luo, Minghao Lu}]{hyperref}
+
+\title{ECE 358 Assignment 7}
+\author{Jason Shao, Lihao Luo, Minghao Lu}
+\date{July 25, 2016}
+
+\begin{document}
+\maketitle
+\renewcommand{\thesubsection}{Problem \arabic{subsection}}
+
+
+\def\question#1{\item[\bf #1.]}
+\def\part#1{\item[\bf #1)]}
+\newcommand{\pc}[1]{\mbox{\textbf{#1}}} % pseudocode
+
+\begin{enumerate}
+	\item
+		Assuming loss rate is not 100 percent, then any data handed to the sender
+		will eventually be received by the receiver intact(not corrupt). 
+		(This sometimes considered a liveness property, but I asked the prof in class if we 
+		can use it for this question and he said yes).
+	\item
+		In general, assuming sequence number is non repeating(infinite number of sequence
+		numbers, prof confirmed valid assumption on piazza), YES. Receiver check sequence
+		number and discard if not next expecting seq number, thus ensuring
+
+		1) the packages are accepted in order \\
+		2) if sender receives an ack, then all packages with seq number smaller or equal to seq 
+		number in ack have been accepted by receiver. \\
+
+		There is also special case we talked about in class where the receiver state machine
+		breaks. The receiver state machine, when receiving a corrupt or out of order package,
+		send back the last ack package it created. But the initialization of the  receiver
+		state machine in the slides creates an ack for a package it hasn't received yet. 
+		So if the very first package the receiver receives is an out of order package, it will
+		send back an acknowledge to a package it hasn't received.
+
+	\item
+		Yes, similiar senario may occur if sender window size is the same as the number of sequence numbers.
+		Assume sequence numbers are 0, 1 and window size is 2. Receiver can't distinguish between
+		
+		1) Sender sends 0,1. Receiver receives 0, send ack for 0. Receiver receives 1, 
+		send ack for 1. Both acknowledgements are lost.  Sender times out, send 0,1 again. 
+		Receiver receives retransmitted 0.\\
+		2) Sender sends 0,1. Receiver receives 0, send ack for 0. Receiver receives 1,
+		send ack for 1. Sender gets both ack. Sender sends new 0,1. Receiver receives new 0.
+
+	\item
+		a) Can't tell if an acknowledgement is from receiver receiving the original transmission or 
+		an retransmission, thus can't estimate RRT for any packages that have been retransmitted.
+
+		b) 3 Duplicate acks for the some sequence number means 3 packages with sequence number
+		higher than that sequence number have been received, but the package with that sequence number 
+		still haven't been received.  This implies the package with that sequence number was probably 
+		lost in transit(rather than something like network is being slow), and therefore should be retransmitted.
+
+	\item
+		handling case 1) after connection terminates, server gets request. server sends ack to client, 
+		since client is terminated, it doesn't send ack in response to server ack, server persumably times 
+		out waiting for ack therefore doesn't open a "half open connection".
+
+		handling case 2) after connection terminates, server gets request. server sends ack to client,
+		since client is termianted, it doesn't send ack in response to server ack, no connection is
+		established and data(x+1) is rejected
+
+	\item
+		If L is the loss rate, then the expectation is that 1/L packages are delivered before the first
+		package is lost. Thus each cyle(increase cwnd from W/2 to W) delivers 1/L packages. (1)\\
+		
+		Since each successful roundtrip increases cwnd by one MSS. Let the unit of W be MSS, then
+		$\frac{W}{2}$ roundtrips are required before cwnd increase from W/2 to W, completing one cyle. 
+		Thus each period requires $\frac{W}{2}$ roundtrips. In slide 105, observe the number of packages 
+		delivered in one cycle is the area under curver for one cycle. Thus number of packages delivered is\\
+		$\frac{\frac{W}{2} + W}{2}_{MSS/roundtrip}* \frac{W}{2}_{roundtrips}=\frac{3}{8}W_{MSS}^2 $. (2)\\
+
+		Setting (1) equal to (2) yields $W=\frac{\sqrt{\frac{8}{3}}}{\sqrt{L}}$MSS. Plugging this in: 
+		$T=\frac{0.75W}{RTT}=\frac{0.75*\sqrt{\frac{3}{8}}MSS}{RTT*\sqrt{L}} \approx \frac{1.22MSS}{RTT*\sqrt{L}}$
+\end{enumerate}
+\end{document}
