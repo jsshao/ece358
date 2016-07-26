@@ -24,20 +24,27 @@ using namespace std;
 #define BUFLEN 500
 #define MAXSOCKETS 5000
 
-#define BYTES_CHECKSUM 2
+#define BYTES_CHECKSUM 4
 #define BYTES_SEQ 4
-#define BYTES_ACK 1
+#define BYTES_TYPE 1
+
+#define MESSAGE 0
+#define ACK 1
+#define FIRST 2
+#define SECOND 3
+#define THIRD 4
+#define KILL 5
 
 struct RcsSocket {
     bool inUse;
-	int seqNum; // fuck it, we're only going to deal with positive seqNum, negative seqNum iff handshake residue
-    int ucpSocket;
+	int32_t seqNum;
+    int32_t ucpSocket;
     struct sockaddr_in local;
     struct sockaddr_in remote;
 
     RcsSocket() {
         inUse = false;
-		int seqNum = 0;
+        seqNum = 0;
     }
 };
 
@@ -45,57 +52,60 @@ struct RcsSocket rcsSockets[MAXSOCKETS];
 
 /************** these are dummy implementations, please actually implement these ****************/
 
-int computeCheckSum(const char* buf, int len) {
-    int sum = 0;
-    for (int i = 0; i < len; i+= 2) {				// for each 16-bit segment of the buffer, sum them
-        int num;
-        if (i == len - 1) {
-            memcpy((char*)&num, &buf[i], 1);		// if odd # of these segments, just take the 8 bits
-        } else {
-            memcpy((char*)&num, &buf[i], 2);
-        }
-        
-        sum += num;
-    }
-    
-    sum += sum >> 16;		// compute one's compliment sum (by adding the carry)
-    sum &= 65535;			// remove the carry
-    sum = ~sum;				// take one's compliment
-    sum &= 65535;			// remove padding
-    return sum;
+int32_t computeCheckSum(const char* buf, int32_t len) {
+   int32_t hash = 0;
+   int32_t i = 0;
+   for(; i < len; i++) {
+       hash += buf[i];
+       hash += (hash << 10);
+       hash ^= (hash >> 6);
+   }
+   hash += (hash << 3);
+   hash ^= (hash >> 11);
+   hash += (hash << 15);
+   return hash;
 }
-
+bool isCorrupt(string s) {
+    cout<<"check corrupt"<<s<<endl;
+    int32_t checksum = computeCheckSum(s.c_str()+BYTES_CHECKSUM, s.length()-BYTES_CHECKSUM);
+    int32_t sentChecksum;
+    memcpy(&sentChecksum, s.c_str(), BYTES_CHECKSUM);
+    /*cout << "CHECKSUM IS " << checksum << endl;*/
+    /*cout << "CHECKSUM IS SUPPOSE TO BE" << sentChecksum << endl;*/
+    /*cout << "equal" << (checksum == sentChecksum) <<endl;*/
+    return checksum  != sentChecksum;
+}
 // create and return a checksumed string message
 // PACKET IS IN THE FORM [ CHECK_SUM | IS_ACK | SEQUENCE | DATA ]
-string makePkt(int seqNum, char* buf, int len, int isAck = 0) {
-	int totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_ACK + len;
+string makePkt(int32_t seqNum, char* buf, int32_t len, int32_t type = MESSAGE) {
+	int32_t totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE + len;
     char pktBuffer[totalLen];
     
     memset(pktBuffer, 0, totalLen);			// initialize packet to all 0s
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_ACK], buf, len);		// set the data
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_ACK], (char*) &seqNum, BYTES_SEQ);		// set the sequence #
-    memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &isAck, BYTES_ACK);				// set the acknowledgement byte
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE], buf, len);		// set the data
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_TYPE], (char*) &seqNum, BYTES_SEQ);		// set the sequence #
+    memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &type, BYTES_TYPE);				// set the acknowledgement byte
     
-    int checksum = computeCheckSum(pktBuffer, totalLen);					// compute checksum
+    int32_t checksum = computeCheckSum(pktBuffer, totalLen);					// compute checksum
     memcpy(pktBuffer, (char*) &checksum, BYTES_CHECKSUM);					// set checksum
-    
 	return string(pktBuffer, totalLen);
 }
 
-string makeAckPkt(int seqNum) {
+string makeAckPkt(int32_t seqNum) {
 	char empty[0];
 	return makePkt(seqNum, empty, 0, 1);
 }
 
-string fetchPkt(int sockfd, struct sockaddr_in desiredRemote) {
+string fetchPkt(int32_t sockfd, struct sockaddr_in desiredRemote) {
 	struct sockaddr_in addr;
 	char buf[BUFLEN];
-	int len = ucpRecvFrom(sockfd, buf, BUFLEN-1, &addr);
+	int32_t len = ucpRecvFrom(sockfd, buf, BUFLEN-1, &addr);
 
 	// len < 0 handles timeouts. just return empty string
 	if(len < 0 || (addr.sin_addr.s_addr != desiredRemote.sin_addr.s_addr)
 			|| (addr.sin_port != desiredRemote.sin_port)) {
-		if(len >= 0) cout<<"somehow the connection addresses are not matching"<<endl;
+		/*if(len >= 0) */
+            /*cout<<"somehow the connection addresses are not matching"<<endl;*/
 
 		return "";
 	}
@@ -103,40 +113,34 @@ string fetchPkt(int sockfd, struct sockaddr_in desiredRemote) {
 	return s;
 }
 
-bool isCorrupt(string s) {
-    int checksum = computeCheckSum(s.c_str(), s.length());
-    cout << "CHECKSUM IS " << checksum << endl;
-	return checksum != 0;
+int getType(string s) {
+	int32_t type = (int32_t)s.c_str()[BYTES_CHECKSUM];
+    return type;
 }
 
 bool isAck(string s) {
-	int ackByte = (int)s.c_str()[BYTES_CHECKSUM];
-	return ackByte == 1;
+	return getType(s) == ACK;
 }
 
-int getSeqNum(string s) {
-	int seqNum;
+int32_t getSeqNum(string s) {
+	int32_t seqNum;
 
-    // for(int i=0; i<s.length(); ++i)
-    //     cout << hex << (int)s.c_str()[i] << " ";
-    // cout << endl;
-
-	memcpy((char*)&seqNum, &s.c_str()[BYTES_CHECKSUM + BYTES_ACK], BYTES_SEQ);
+	memcpy((char*)&seqNum, &s.c_str()[BYTES_CHECKSUM + BYTES_TYPE], BYTES_SEQ);
 	return seqNum;
 }
 
 string getMessage(string s) {
-	return s.substr(BYTES_CHECKSUM + BYTES_ACK + BYTES_SEQ);
+	return s.substr(BYTES_CHECKSUM + BYTES_TYPE + BYTES_SEQ);
 }
 
 /***********************************************************************************************/
 
-int rcsSocket() 
+int32_t rcsSocket() 
 {
-    for(int i=0; i<MAXSOCKETS; i++) {
+    for(int32_t i=0; i<MAXSOCKETS; i++) {
         RcsSocket &rs = rcsSockets[i];
         if(!rs.inUse) {
-            int sockfd = ucpSocket();
+            int32_t sockfd = ucpSocket();
             if(sockfd < 0)
                 return -1;
 
@@ -148,7 +152,7 @@ int rcsSocket()
     return -1;
 }
 
-int rcsBind(int sockfd, struct sockaddr_in *addr) 
+int32_t rcsBind(int32_t sockfd, struct sockaddr_in *addr) 
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -160,7 +164,7 @@ int rcsBind(int sockfd, struct sockaddr_in *addr)
     return -1;
 }
 
-int rcsGetSockName(int sockfd, struct sockaddr_in *addr) 
+int32_t rcsGetSockName(int32_t sockfd, struct sockaddr_in *addr) 
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -175,7 +179,7 @@ int rcsGetSockName(int sockfd, struct sockaddr_in *addr)
     return -1;
 }
 
-int rcsListen(int sockfd)
+int32_t rcsListen(int32_t sockfd)
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -187,7 +191,7 @@ int rcsListen(int sockfd)
     return -1;
 }
 
-int rcsAccept(int sockfd, struct sockaddr_in *addr)
+int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr)
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -198,7 +202,7 @@ int rcsAccept(int sockfd, struct sockaddr_in *addr)
     char buf[BUFLEN];
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
-        for(int i=0; i<MAXSOCKETS; i++) {
+        for(int32_t i=0; i<MAXSOCKETS; i++) {
             RcsSocket &newRs = rcsSockets[i];
             if(!newRs.inUse) {
 
@@ -211,7 +215,7 @@ int rcsAccept(int sockfd, struct sockaddr_in *addr)
 
 				//first handshake
 				do {
-                    int len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, addr);
+                    int32_t len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, addr);
                     buf[len] = '\0';
 				} while ( first != buf );
 				newRs.remote = *addr;
@@ -224,10 +228,10 @@ int rcsAccept(int sockfd, struct sockaddr_in *addr)
 
 					// recieve third hanshake
 					cout<<"sent, waiting for acknowlegement"<<endl;
-					int len = ucpRecvFrom(newRs.ucpSocket, buf, BUFLEN-1, addr);
+					int32_t len = ucpRecvFrom(newRs.ucpSocket, buf, BUFLEN-1, addr);
 					buf[len] = '\0';
 				} while ( third != buf );
-				cout<<"got acknowledgement"<<endl<<endl<<endl;
+                    cout<<"got acknowledgement"<<endl<<endl<<endl;
 
                 return i;
             }
@@ -236,7 +240,7 @@ int rcsAccept(int sockfd, struct sockaddr_in *addr)
     return -1;
 }
 
-int rcsConnect(int sockfd, const struct sockaddr_in *addr)
+int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr)
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -255,7 +259,7 @@ int rcsConnect(int sockfd, const struct sockaddr_in *addr)
         //need valid handshake
         printf("true client info %s %u\n", inet_ntoa(rs.local.sin_addr), ntohs(rs.local.sin_port));
 		do {
-			int len = ucpSendTo(rs.ucpSocket, first.c_str(), first.length(), &(rs.remote));
+			int32_t len = ucpSendTo(rs.ucpSocket, first.c_str(), first.length(), &(rs.remote));
 			len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, &(rs.remote));
 			buf[len] = '\0';
 		} while(second != buf);
@@ -264,7 +268,7 @@ int rcsConnect(int sockfd, const struct sockaddr_in *addr)
 
 		// this needs to be improved plox pretty plox oh my pretty plox
 		// jason jason jason jason jason
-		for(int i=0; i<5; i++) {
+		for(int32_t i=0; i<5; i++) {
 			ucpSendTo(rs.ucpSocket, third.c_str(), third.length(), &(rs.remote));
 		}
 
@@ -274,7 +278,7 @@ int rcsConnect(int sockfd, const struct sockaddr_in *addr)
     return -1;
 }
 
-int rcsRecv(int sockfd, void *buf, int len)
+int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len)
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
@@ -289,7 +293,7 @@ int rcsRecv(int sockfd, void *buf, int len)
 				continue;
 			}
 
-			int seqNum = getSeqNum(recvPkt);
+			int32_t seqNum = getSeqNum(recvPkt);
 			if( seqNum != rs.seqNum ) {
 				ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
 				continue;
@@ -310,7 +314,7 @@ int rcsRecv(int sockfd, void *buf, int len)
     return -1;
 }
 
-int rcsSend(int sockfd, void *buf, int len)
+int32_t rcsSend(int32_t sockfd, void *buf, int32_t len)
 {
 	///////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////
@@ -329,7 +333,7 @@ int rcsSend(int sockfd, void *buf, int len)
 
 		// send pkt
 		string sendPkt = makePkt(rs.seqNum, (char*)buf, len);
-		int sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+		int32_t sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
 		while(sentLen != sendPkt.length()) {
 			sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
 		}
@@ -344,8 +348,11 @@ int rcsSend(int sockfd, void *buf, int len)
 			}
 
 			bool ack = isAck(recvPkt);
-			int seqNum = getSeqNum(recvPkt);
+			int32_t seqNum = getSeqNum(recvPkt);
 			
+            cout<<"ack: "<<ack<<endl;
+            cout<<"seq: "<<seqNum<<endl;
+            cout<<"exp: "<<rs.seqNum<<endl;
 			if( seqNum < 0 ) {
 				//residue of initial handshake
 				continue;
@@ -365,7 +372,7 @@ int rcsSend(int sockfd, void *buf, int len)
     return -1;
 }
 
-int rcsClose(int sockfd)
+int32_t rcsClose(int32_t sockfd)
 {
 	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
 		return -1;
