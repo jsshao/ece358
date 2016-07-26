@@ -23,6 +23,7 @@ using namespace std;
 
 #define BUFLEN 500
 #define MAXSOCKETS 5000
+#define SPAM 20
 
 #define BYTES_CHECKSUM 4
 #define BYTES_SEQ 4
@@ -35,9 +36,10 @@ using namespace std;
 #define THIRD 4
 #define KILL 5
 
+
 struct RcsSocket {
     bool inUse;
-	int32_t seqNum;
+    int32_t seqNum;
     int32_t ucpSocket;
     struct sockaddr_in local;
     struct sockaddr_in remote;
@@ -78,59 +80,63 @@ bool isCorrupt(string s) {
 // create and return a checksumed string message
 // PACKET IS IN THE FORM [ CHECK_SUM | IS_ACK | SEQUENCE | DATA ]
 string makePkt(int32_t seqNum, char* buf, int32_t len, int32_t type = MESSAGE) {
-	int32_t totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE + len;
+    int32_t totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE + len;
     char pktBuffer[totalLen];
     
-    memset(pktBuffer, 0, totalLen);			// initialize packet to all 0s
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE], buf, len);		// set the data
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_TYPE], (char*) &seqNum, BYTES_SEQ);		// set the sequence #
-    memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &type, BYTES_TYPE);				// set the acknowledgement byte
+    memset(pktBuffer, 0, totalLen);         // initialize packet to all 0s
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE], buf, len);      // set the data
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_TYPE], (char*) &seqNum, BYTES_SEQ);        // set the sequence #
+    memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &type, BYTES_TYPE);              // set the acknowledgement byte
     
-    int32_t checksum = computeCheckSum(pktBuffer, totalLen);					// compute checksum
-    memcpy(pktBuffer, (char*) &checksum, BYTES_CHECKSUM);					// set checksum
-	return string(pktBuffer, totalLen);
+    int32_t checksum = computeCheckSum(pktBuffer, totalLen);                    // compute checksum
+    memcpy(pktBuffer, (char*) &checksum, BYTES_CHECKSUM);                   // set checksum
+    return string(pktBuffer, totalLen);
+}
+
+string makeTypePkt(int32_t seqNum, int32_t type) {
+    char empty[0];
+    return makePkt(seqNum, empty, 0, type);
 }
 
 string makeAckPkt(int32_t seqNum) {
-	char empty[0];
-	return makePkt(seqNum, empty, 0, 1);
+    return makeTypePkt(seqNum, ACK);
 }
 
-string fetchPkt(int32_t sockfd, struct sockaddr_in desiredRemote) {
-	struct sockaddr_in addr;
-	char buf[BUFLEN];
-	int32_t len = ucpRecvFrom(sockfd, buf, BUFLEN-1, &addr);
+string fetchPkt(int32_t sockfd, struct sockaddr_in desiredRemote, bool checkAddress = true) {
+    struct sockaddr_in addr;
+    char buf[BUFLEN];
+    int32_t len = ucpRecvFrom(sockfd, buf, BUFLEN-1, &addr);
 
-	// len < 0 handles timeouts. just return empty string
-	if(len < 0 || (addr.sin_addr.s_addr != desiredRemote.sin_addr.s_addr)
-			|| (addr.sin_port != desiredRemote.sin_port)) {
-		/*if(len >= 0) */
-            /*cout<<"somehow the connection addresses are not matching"<<endl;*/
+    // len < 0 handles timeouts. just return empty string
+    if(len <= 0 )
+        return "";
 
-		return "";
-	}
-	string s(buf, len);
-	return s;
+    if( checkAddress && (addr.sin_addr.s_addr != desiredRemote.sin_addr.s_addr 
+             || addr.sin_port != desiredRemote.sin_port))
+        return "";
+
+    string s(buf, len);
+    return s;
 }
 
 int getType(string s) {
-	int32_t type = (int32_t)s.c_str()[BYTES_CHECKSUM];
+    int32_t type = (int32_t)s.c_str()[BYTES_CHECKSUM];
     return type;
 }
 
 bool isAck(string s) {
-	return getType(s) == ACK;
+    return getType(s) == ACK;
 }
 
 int32_t getSeqNum(string s) {
-	int32_t seqNum;
+    int32_t seqNum;
 
-	memcpy((char*)&seqNum, &s.c_str()[BYTES_CHECKSUM + BYTES_TYPE], BYTES_SEQ);
-	return seqNum;
+    memcpy((char*)&seqNum, &s.c_str()[BYTES_CHECKSUM + BYTES_TYPE], BYTES_SEQ);
+    return seqNum;
 }
 
 string getMessage(string s) {
-	return s.substr(BYTES_CHECKSUM + BYTES_TYPE + BYTES_SEQ);
+    return s.substr(BYTES_CHECKSUM + BYTES_TYPE + BYTES_SEQ);
 }
 
 /***********************************************************************************************/
@@ -154,8 +160,8 @@ int32_t rcsSocket()
 
 int32_t rcsBind(int32_t sockfd, struct sockaddr_in *addr) 
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
@@ -166,8 +172,8 @@ int32_t rcsBind(int32_t sockfd, struct sockaddr_in *addr)
 
 int32_t rcsGetSockName(int32_t sockfd, struct sockaddr_in *addr) 
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
@@ -181,25 +187,61 @@ int32_t rcsGetSockName(int32_t sockfd, struct sockaddr_in *addr)
 
 int32_t rcsListen(int32_t sockfd)
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
-		return ucpSetSockRecvTimeout(rs.ucpSocket, 1000);
+        return ucpSetSockRecvTimeout(rs.ucpSocket, 1000);
+    }
+    return -1;
+}
+
+int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr)
+{
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
+
+    string first = makeTypePkt(-1, FIRST);
+    string second;
+    string third = makeTypePkt(-1, THIRD);
+    RcsSocket &rs = rcsSockets[sockfd];
+    if(rs.inUse) {
+        if ( ucpSetSockRecvTimeout(rs.ucpSocket, 1000) != 0 ) {
+            return -1;
+        }
+
+        //need valid handshake
+        do {
+            ucpSendTo(rs.ucpSocket, first.c_str(), first.length(), addr);
+            cout<<"sent"<<endl;
+            char buf[BUFLEN];
+            int32_t len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, &(rs.remote));
+            if(len <= 0)
+                continue;
+            second = string(buf, len);
+        } while(getType(second) != SECOND);
+        cout<<"received second"<<endl;
+        printf("server info %s %u\n", inet_ntoa(rs.remote.sin_addr), ntohs(rs.remote.sin_port));
+
+        for(int32_t i=0; i<SPAM; i++) {
+            ucpSendTo(rs.ucpSocket, third.c_str(), third.length(), &(rs.remote));
+        }
+
+        return 0;
+
     }
     return -1;
 }
 
 int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr)
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
-    string first = "first";
-    string second = "second";
-    string third = "third";
-    char buf[BUFLEN];
+    string first;
+    string second = makeTypePkt(-1, SECOND);
+    string third;
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
         for(int32_t i=0; i<MAXSOCKETS; i++) {
@@ -213,25 +255,34 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr)
                 ucpBind(newRs.ucpSocket, &(newRs.local));
                 ucpGetSockName(newRs.ucpSocket, &(newRs.local));
 
-				//first handshake
-				do {
+                //first handshake
+                do {
+                    char buf[BUFLEN];
                     int32_t len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, addr);
-                    buf[len] = '\0';
-				} while ( first != buf );
-				newRs.remote = *addr;
+                    if(len <= 0)
+                        continue;
+                    first = string(buf, len);
+                    cout<<"got package"<<endl;
+                    cout<<"package type"<<getType(first)<<endl;
+                    cout<<"desired first"<<FIRST<<endl;
+                } while ( getType(first) != FIRST );
+                cout<<"escape 1"<<endl;
+                newRs.remote = *addr;
 
-				cout<<endl<<"server port: "<<ntohs(newRs.local.sin_port)<<endl;
-				printf("server client info %s %u\n", inet_ntoa(newRs.remote.sin_addr), ntohs(newRs.remote.sin_port));
-				do {
-					// second handshake: send new socket info
-					ucpSendTo(newRs.ucpSocket, second.c_str(), second.length(), &(newRs.remote));
+                cout<<endl<<"server port: "<<ntohs(newRs.local.sin_port)<<endl;
+                printf("server client info %s %u\n", inet_ntoa(newRs.remote.sin_addr), ntohs(newRs.remote.sin_port));
+                do {
+                    cout<<"waiting"<<endl;
+                    ucpSendTo(newRs.ucpSocket, second.c_str(), second.length(), &(newRs.remote));
+                    third = fetchPkt(newRs.ucpSocket, newRs.remote);
+                    if(third != "") {
+                        cout<<"type"<<getType(third)<<endl;
+                        cout<<"desired"<<THIRD<<endl;
+                    }
+                } while ( getType(third) != THIRD );
+                cout<<"got acknowledgement"<<endl<<endl<<endl;
 
-					// recieve third hanshake
-					cout<<"sent, waiting for acknowlegement"<<endl;
-					int32_t len = ucpRecvFrom(newRs.ucpSocket, buf, BUFLEN-1, addr);
-					buf[len] = '\0';
-				} while ( third != buf );
-                    cout<<"got acknowledgement"<<endl<<endl<<endl;
+                cout<<"------------- connection established ------------"<<endl;
 
                 return i;
             }
@@ -240,147 +291,110 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr)
     return -1;
 }
 
-int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr)
-{
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
 
-    string first = "first";
-    string second = "second";
-    string third = "third";
-    char buf[BUFLEN];
+int32_t rcsSend(int32_t sockfd, void *buf, int32_t len)
+{
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    len = len<BUFLEN-1 ? len : BUFLEN-1;
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
+
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
-    	if ( ucpSetSockRecvTimeout(rs.ucpSocket, 1000) != 0 ) {
-    		return -1;
-    	}
-        rs.remote = *addr;
 
-        //need valid handshake
-        printf("true client info %s %u\n", inet_ntoa(rs.local.sin_addr), ntohs(rs.local.sin_port));
-		do {
-			int32_t len = ucpSendTo(rs.ucpSocket, first.c_str(), first.length(), &(rs.remote));
-			len = ucpRecvFrom(rs.ucpSocket, buf, BUFLEN-1, &(rs.remote));
-			buf[len] = '\0';
-		} while(second != buf);
-        cout<<"received second"<<endl;
-        cout<<"server port: "<<ntohs(rs.remote.sin_port)<<endl<<endl<<endl;
+        // send pkt
+        string sendPkt = makePkt(rs.seqNum, (char*)buf, len);
+        int32_t sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+        while(sentLen != sendPkt.length()) {
+            sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+        }
 
-		// this needs to be improved plox pretty plox oh my pretty plox
-		// jason jason jason jason jason
-		for(int32_t i=0; i<5; i++) {
-			ucpSendTo(rs.ucpSocket, third.c_str(), third.length(), &(rs.remote));
-		}
+        // receive ack pkt
+        for(;;) {
+            string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
 
-        return 0;
+            if( recvPkt == "" || isCorrupt(recvPkt) ) {
+                ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+                continue;
+            }
 
+            bool ack = isAck(recvPkt);
+            int32_t seqNum = getSeqNum(recvPkt);
+            
+            cout<<"ack: "<<ack<<endl;
+            cout<<"seq: "<<seqNum<<endl;
+            cout<<"exp: "<<rs.seqNum<<endl;
+            if( seqNum < 0 ) {
+                //residue of initial handshake
+                continue;
+            }
+
+            if( (seqNum != rs.seqNum) || !ack ) {
+                ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+                continue;
+            }
+
+            rs.seqNum += 1;
+            rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
+
+            return sentLen;
+        }
     }
     return -1;
 }
 
 int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len)
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
-		string ackPkt = makeAckPkt(rs.seqNum-1);
-		for(;;) {
-			string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
-			if( isCorrupt(recvPkt) ) {
-				ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-				continue;
-			}
+        string ackPkt = makeAckPkt(rs.seqNum-1);
+        for(;;) {
+            string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
+            if( isCorrupt(recvPkt) ) {
+                ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+                continue;
+            }
 
-			int32_t seqNum = getSeqNum(recvPkt);
-			if( seqNum != rs.seqNum ) {
-				ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-				continue;
-			}
+            int32_t seqNum = getSeqNum(recvPkt);
+            if( seqNum != rs.seqNum ) {
+                ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+                continue;
+            }
 
-			ackPkt = makeAckPkt(rs.seqNum);
-			ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-			string msg = getMessage(recvPkt);
-			memcpy(buf, msg.c_str(), msg.length()+1);
+            ackPkt = makeAckPkt(rs.seqNum);
+            ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+            string msg = getMessage(recvPkt);
+            memcpy(buf, msg.c_str(), msg.length()+1);
 
-			rs.seqNum += 1;
-			rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
+            rs.seqNum += 1;
+            rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
 
-			cout << "GOT MESSAGE SUCCESSFULLY: " << msg << endl;
-			return msg.length();
-		}
-    }
-    return -1;
-}
-
-int32_t rcsSend(int32_t sockfd, void *buf, int32_t len)
-{
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	len = len<BUFLEN-1 ? len : BUFLEN-1;
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
-
-    RcsSocket &rs = rcsSockets[sockfd];
-    if(rs.inUse) {
-
-		// send pkt
-		string sendPkt = makePkt(rs.seqNum, (char*)buf, len);
-		int32_t sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-		while(sentLen != sendPkt.length()) {
-			sentLen = ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-		}
-
-		// receive ack pkt
-		for(;;) {
-			string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
-
-			if( recvPkt == "" || isCorrupt(recvPkt) ) {
-				ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-				continue;
-			}
-
-			bool ack = isAck(recvPkt);
-			int32_t seqNum = getSeqNum(recvPkt);
-			
-            cout<<"ack: "<<ack<<endl;
-            cout<<"seq: "<<seqNum<<endl;
-            cout<<"exp: "<<rs.seqNum<<endl;
-			if( seqNum < 0 ) {
-				//residue of initial handshake
-				continue;
-			}
-
-			if( (seqNum != rs.seqNum) || !ack ) {
-				ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-				continue;
-			}
-
-			rs.seqNum += 1;
-			rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
-
-			return sentLen;
-		}
+            cout << "GOT MESSAGE SUCCESSFULLY: " << msg << endl;
+            return msg.length();
+        }
     }
     return -1;
 }
 
 int32_t rcsClose(int32_t sockfd)
 {
-	if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
-		return -1;
+    if( !(0 <= sockfd && sockfd <= MAXSOCKETS) )
+        return -1;
 
     RcsSocket &rs = rcsSockets[sockfd];
     if(rs.inUse) {
         rs.inUse = false;
-		rs.seqNum = 0;
+        rs.seqNum = 0;
         return 0;
     }
     return -1;
