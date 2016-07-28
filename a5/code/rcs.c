@@ -7,6 +7,9 @@
 #include <string>
 #include "rcs.h"
 #include "ucp.h"
+
+
+#include <iostream>
 using namespace std;
 
 #define MAXSOCKETS 5000
@@ -17,7 +20,7 @@ using namespace std;
 #define BYTES_CHECKSUM 4
 #define BYTES_SEQ 4
 #define BYTES_TYPE 1
-#define MAX_MESSAGE_SIZE BUFLEN - BYTES_CHECKSUM - BYTES_SEQ - BYTES_TYPE - 1
+#define MAX_MESSAGE_SIZE BUFLEN - BYTES_CHECKSUM - 2*BYTES_SEQ - BYTES_TYPE - 1
 
 #define MESSAGE 0
 #define ACK 1
@@ -31,7 +34,8 @@ struct RcsSocket {
     bool inUse;
     bool bound;
     bool connected;
-    int32_t seqNum;
+    int32_t pktSeq; //sequence number of next packet to send
+    int32_t ackSeq; //sequence number of next packet expecting to receive
     int32_t ucpSocket;
     struct sockaddr_in local;
     struct sockaddr_in remote;
@@ -43,7 +47,8 @@ struct RcsSocket {
         inUse = false;
         bound = false;
         connected = false;
-        seqNum = 0;
+        pktSeq = 0;
+        ackSeq = 0;
     }
 };
 
@@ -76,14 +81,15 @@ bool isCorrupt(string pkt) {
 }
 
 // create and return a checksumed string message
-// PACKET IS IN THE FORM [ CHECK_SUM | IS_ACK | SEQUENCE | DATA ]
-string makePkt(int32_t seqNum, char* buf, int32_t len, int32_t type = MESSAGE) {
-    int32_t totalLen = BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE + len;
+// PACKET IS IN THE FORM [ CHECK_SUM | IS_ACK | PKT SEQ | ACK SEQ | DATA ]
+string makePkt(int32_t pktSeq, int32_t ackSeq, char* buf, int32_t len, int32_t type = MESSAGE) {
+    int32_t totalLen = BYTES_CHECKSUM + 2*BYTES_SEQ + BYTES_TYPE + len;
     char pktBuffer[totalLen];
     
     memset(pktBuffer, 0, totalLen);         // initialize packet to all 0s
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE], buf, len);      // set the data
-    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_TYPE], (char*) &seqNum, BYTES_SEQ);        // set the sequence #
+    memcpy(&pktBuffer[BYTES_CHECKSUM + 2*BYTES_SEQ + BYTES_TYPE], buf, len);      // set the data
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_SEQ + BYTES_TYPE], (char*) &ackSeq, BYTES_SEQ);      // set the data
+    memcpy(&pktBuffer[BYTES_CHECKSUM + BYTES_TYPE], (char*) &pktSeq, BYTES_SEQ);        // set the sequence #
     memcpy(&pktBuffer[BYTES_CHECKSUM], (char*) &type, BYTES_TYPE);              // set the acknowledgement byte
     
     int32_t checksum = computeCheckSum(pktBuffer, totalLen);                    // compute checksum
@@ -91,13 +97,14 @@ string makePkt(int32_t seqNum, char* buf, int32_t len, int32_t type = MESSAGE) {
     return string(pktBuffer, totalLen);
 }
 
-string makeTypePkt(int32_t seqNum, int32_t type) {
+string makeTypePkt(int32_t type) {
     char empty[0];
-    return makePkt(seqNum, empty, 0, type);
+    return makePkt(-1, -1, empty, 0, type);
 }
 
-string makeAckPkt(int32_t seqNum) {
-    return makeTypePkt(seqNum, ACK);
+string makeAckPkt(int32_t ackSeq) {
+    char empty[0];
+    return makePkt(-1, ackSeq, empty, 0, ACK);
 }
 
 string fetchPkt(int32_t sockfd, struct sockaddr_in desiredRemote, bool checkAddress = true) {
@@ -122,19 +129,21 @@ int getType(string pkt) {
     return type;
 }
 
-bool isAck(string pkt) {
-    return getType(pkt) == ACK;
+int32_t getPktSeq(string pkt) {
+    int32_t pktSeq;
+    memcpy((char*)&pktSeq, &pkt.c_str()[BYTES_CHECKSUM + BYTES_TYPE], BYTES_SEQ);
+    return pktSeq;
 }
 
-int32_t getSeqNum(string pkt) {
-    int32_t seqNum;
+int32_t getAckSeq(string pkt) {
+    int32_t ackSeq;
+    memcpy((char*)&ackSeq, &pkt.c_str()[BYTES_CHECKSUM + BYTES_TYPE + BYTES_SEQ], BYTES_SEQ);
+    return ackSeq;
 
-    memcpy((char*)&seqNum, &pkt.c_str()[BYTES_CHECKSUM + BYTES_TYPE], BYTES_SEQ);
-    return seqNum;
 }
 
 string getMessage(string pkt) {
-    return pkt.substr(BYTES_CHECKSUM + BYTES_TYPE + BYTES_SEQ);
+    return pkt.substr(BYTES_CHECKSUM + BYTES_TYPE + 2*BYTES_SEQ);
 }
 
 
@@ -224,9 +233,9 @@ int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr) {
         return -1;
     }
 
-    string first = makeTypePkt(-1, FIRST);
+    string first = makeTypePkt(FIRST);
     string second;
-    string third = makeTypePkt(-1, THIRD);
+    string third = makeTypePkt(THIRD);
 
     clock_t begin = clock();
     do {
@@ -261,7 +270,7 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr) {
     }
 
     string first;
-    string second = makeTypePkt(-1, SECOND);
+    string second = makeTypePkt(SECOND);
     string third;
     RcsSocket &rs = rcsSockets[sockfd];
     for(int32_t i=0; i<MAXSOCKETS; i++) {
@@ -302,6 +311,7 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr) {
                     continue;
             } while ( isCorrupt(third) || getType(third) != THIRD );
 
+            cout<<"connection established"<<endl;
             return i;
         }
     }
@@ -320,7 +330,7 @@ int32_t rcsSend(int32_t sockfd, void *buf, int32_t len) {
     RcsSocket &rs = rcsSockets[sockfd];
 
     // send pkt
-    string sendPkt = makePkt(rs.seqNum, (char*)buf, sentLen);
+    string sendPkt = makePkt(rs.pktSeq, rs.ackSeq-1, (char*)buf, sentLen);
     ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
 
     // receive ack pkt
@@ -333,26 +343,21 @@ int32_t rcsSend(int32_t sockfd, void *buf, int32_t len) {
         }
 
         if(getType(recvPkt) == KILL) {
-            rs.inUse = false;
-            rs.seqNum = 0;
+            rs.reset();
             return -1;
         }
 
-        bool ack = isAck(recvPkt);
-        int32_t seqNum = getSeqNum(recvPkt);
-
-        if( seqNum < 0 ) {
-            //residue of initial handshake
+        if(getType(recvPkt) == THIRD) {
             continue;
         }
 
-        if( (seqNum != rs.seqNum) || !ack ) {
+        if( getAckSeq(recvPkt) != rs.pktSeq ) {
             ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
             continue;
         }
 
-        rs.seqNum += 1;
-        rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
+        rs.pktSeq += 1;
+        rs.pktSeq = rs.pktSeq>=0 ? rs.pktSeq : 0;
 
         return sentLen;
     }
@@ -365,7 +370,7 @@ int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
     }
 
     RcsSocket &rs = rcsSockets[sockfd];
-    string ackPkt = makeAckPkt(rs.seqNum-1);
+    string ackPkt = makeAckPkt(rs.ackSeq-1);
     for(;;) {
         string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
         if( recvPkt == "" || isCorrupt(recvPkt) ) {
@@ -374,24 +379,27 @@ int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
         }
 
         if(getType(recvPkt) == KILL) {
-            rs.inUse = false;
-            rs.seqNum = 0;
+            rs.reset();
             return -1;
         }
 
-        int32_t seqNum = getSeqNum(recvPkt);
-        if( seqNum != rs.seqNum ) {
+        if(getType(recvPkt) == THIRD) {
+            continue;
+        }
+
+        int32_t pktSeq = getPktSeq(recvPkt);
+        if( pktSeq != rs.ackSeq ) {
             ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
             continue;
         }
 
-        ackPkt = makeAckPkt(rs.seqNum);
+        ackPkt = makeAckPkt(rs.ackSeq);
         ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
         string msg = getMessage(recvPkt);
         memcpy(buf, msg.c_str(), msg.length()+1);
 
-        rs.seqNum += 1;
-        rs.seqNum = rs.seqNum >= 0 ? rs.seqNum : 0;
+        rs.ackSeq += 1;
+        rs.ackSeq = rs.ackSeq >= 0 ? rs.ackSeq : 0;
 
         return msg.length();
     }
@@ -404,9 +412,10 @@ int32_t rcsClose(int32_t sockfd) {
     }
 
     RcsSocket &rs = rcsSockets[sockfd];
-    string killPkt = makeTypePkt(-1, FIRST);
+    string killPkt = makeTypePkt(FIRST);
     for(int i=0; i<SPAM_COUNT; i++)
         ucpSendTo(rs.ucpSocket, killPkt.c_str(), killPkt.length(), &(rs.remote));
+
     rs.reset();
     return 0;
 }
