@@ -10,10 +10,11 @@
 
 
 #include <iostream>
+#include <cassert>
 using namespace std;
 
 #define MAXSOCKETS 5000
-#define SPAM_COUNT 20
+#define SPAM_COUNT 5
 #define UCP_TIMEOUT 1000
 
 #define BUFLEN 500
@@ -21,6 +22,7 @@ using namespace std;
 #define BYTES_SEQ 4
 #define BYTES_TYPE 1
 #define MAX_MESSAGE_SIZE BUFLEN - BYTES_CHECKSUM - 2*BYTES_SEQ - BYTES_TYPE - 1
+
 
 #define MESSAGE 0
 #define ACK 1
@@ -40,6 +42,8 @@ struct RcsSocket {
     struct sockaddr_in local;
     struct sockaddr_in remote;
 
+    string recvMsg;
+
     RcsSocket() {
         reset();
     }
@@ -49,6 +53,7 @@ struct RcsSocket {
         connected = false;
         pktSeq = 0;
         ackSeq = 0;
+        recvMsg = "";
     }
 };
 
@@ -326,41 +331,56 @@ int32_t rcsSend(int32_t sockfd, void *buf, int32_t len) {
         return -1;
     }
 
-    int sentLen = len<MAX_MESSAGE_SIZE ? len : MAX_MESSAGE_SIZE;
     RcsSocket &rs = rcsSockets[sockfd];
-
-    // send pkt
-    string sendPkt = makePkt(rs.pktSeq, rs.ackSeq-1, (char*)buf, sentLen);
-    ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-
-    // receive ack pkt
-    for(;;) {
-        string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
-
-        if( recvPkt == "" || isCorrupt(recvPkt) ) {
-            ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-            continue;
-        }
-
-        if(getType(recvPkt) == KILL) {
-            rs.reset();
-            return -1;
-        }
-
-        if(getType(recvPkt) == THIRD) {
-            continue;
-        }
-
-        if( getAckSeq(recvPkt) != rs.pktSeq ) {
-            ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
-            continue;
-        }
-
-        rs.pktSeq += 1;
-        rs.pktSeq = rs.pktSeq>=0 ? rs.pktSeq : 0;
-
-        return sentLen;
+    if( !rs.connected ) {
+        errno = ENOTCONN; 
+        return -1;
     }
+
+    int totalLen = 0;
+    while(totalLen < len) {
+
+        int msgSize = len - totalLen;
+        if ( msgSize > MAX_MESSAGE_SIZE ) {
+            msgSize = MAX_MESSAGE_SIZE;
+        }
+
+        // send pkt
+        string sendPkt = makePkt(rs.pktSeq, rs.ackSeq-1, (char*)buf+totalLen, msgSize);
+        ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+
+        // receive ack pkt
+        for(;;) {
+            string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
+
+            if( recvPkt == "" || isCorrupt(recvPkt) ) {
+                ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+                continue;
+            }
+
+            if(getType(recvPkt) == KILL) {
+                rs.reset();
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            if(getType(recvPkt) == THIRD) {
+                continue;
+            }
+
+            if( getAckSeq(recvPkt) != rs.pktSeq ) {
+                ucpSendTo(rs.ucpSocket, sendPkt.c_str(), sendPkt.length(), &(rs.remote));
+                continue;
+            }
+
+
+            totalLen += msgSize;
+            rs.pktSeq += 1;
+            rs.pktSeq = rs.pktSeq>=0 ? rs.pktSeq : 0;
+            break;
+        }
+    }
+    return 0;
 }
 
 int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
@@ -370,39 +390,58 @@ int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
     }
 
     RcsSocket &rs = rcsSockets[sockfd];
-    string ackPkt = makeAckPkt(rs.ackSeq-1);
-    for(;;) {
-        string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
-        if( recvPkt == "" || isCorrupt(recvPkt) ) {
-            ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-            continue;
-        }
-
-        if(getType(recvPkt) == KILL) {
-            rs.reset();
-            return -1;
-        }
-
-        if(getType(recvPkt) == THIRD) {
-            continue;
-        }
-
-        int32_t pktSeq = getPktSeq(recvPkt);
-        if( pktSeq != rs.ackSeq ) {
-            ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-            continue;
-        }
-
-        ackPkt = makeAckPkt(rs.ackSeq);
-        ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
-        string msg = getMessage(recvPkt);
-        memcpy(buf, msg.c_str(), msg.length()+1);
-
-        rs.ackSeq += 1;
-        rs.ackSeq = rs.ackSeq >= 0 ? rs.ackSeq : 0;
-
-        return msg.length();
+    if( !rs.connected ) {
+        errno = ENOTCONN; 
+        return -1;
     }
+ 
+    if( rs.recvMsg == "" ) {
+        string ackPkt = makeAckPkt(rs.ackSeq-1);
+        for(;;) {
+            string recvPkt = fetchPkt(rs.ucpSocket, rs.remote);
+            if( recvPkt == "" || isCorrupt(recvPkt) ) {
+                ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+                continue;
+            }
+
+            if(getType(recvPkt) == KILL) {
+                rs.reset();
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            if(getType(recvPkt) == THIRD) {
+                continue;
+            }
+
+            int32_t pktSeq = getPktSeq(recvPkt);
+            if( pktSeq != rs.ackSeq ) {
+                ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+                continue;
+            }
+
+            ackPkt = makeAckPkt(rs.ackSeq);
+            ucpSendTo(rs.ucpSocket, ackPkt.c_str(), ackPkt.length(), &(rs.remote));
+            rs.recvMsg = getMessage(recvPkt);
+
+            rs.ackSeq += 1;
+            rs.ackSeq = rs.ackSeq >= 0 ? rs.ackSeq : 0;
+            break;
+        }
+    }
+
+    int recvLen = rs.recvMsg.length() < len ? rs.recvMsg.length() : len;
+    string msg = rs.recvMsg.substr(0, recvLen);
+    memcpy(buf, msg.c_str(), msg.length());
+    assert(recvLen == msg.length());
+    printf("%s, %i, %i", buf, recvLen, rs.ackSeq);
+
+    if(recvLen == rs.recvMsg.length()) {
+        rs.recvMsg = "";
+    } else {
+        rs.recvMsg = rs.recvMsg.substr(recvLen);
+    }
+    return recvLen;
 }
 
 int32_t rcsClose(int32_t sockfd) {
