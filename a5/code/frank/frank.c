@@ -20,6 +20,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <iostream>
+ #include <string>
+using namespace std;
 
 unsigned int getrand() {
     int f = open("/dev/urandom", O_RDONLY);
@@ -40,7 +43,7 @@ void gen_random(char *s, const int len) {
         s[i] = alphanum[getrand() % (sizeof(alphanum) - 1)];
     }
 
-    s[len] = 0;
+    s[len-1] = 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -61,9 +64,6 @@ int main(int argc, char *argv[]) {
         perror("bind"); exit(1);
     }
 
-    char buf[256];
-    int nread = -1;
-
     a.sin_family = AF_INET;
     a.sin_port = htons((uint16_t)(atoi(argv[2])));
     if(inet_aton(argv[1], &(a.sin_addr)) < 0) {
@@ -76,20 +76,26 @@ int main(int argc, char *argv[]) {
     }
 
     int it = 0;
+    int len = 10;
     while (it < 1000) {
-        gen_random(buf, 256);
-        if(send(s, buf, nread, MSG_NOSIGNAL) < 0) {
+        char buf[len];
+        printf("%d iteration\n", it);
+        gen_random(buf, len);
+        if(send(s, buf, len, 0) < 0) {
             perror("send"); exit(1);
         }
 
-        char received_buf[256];
-        if(recv(s, received_buf, 256, 0) < 0) {
+        char received_buf[len];
+        int recvlen = 0;
+        if((recvlen = recv(s, received_buf, len, 0)) < 0) {
             perror("RECEIVE ERROR\n");
             exit(1);
         }
 
-        if (!strcmp(received_buf, buf)) {
-            printf("sent string %s and got %s\n", buf, received_buf);
+        cout << buf << endl;
+        cout << received_buf << " with len " << recvlen << endl;
+        if (strcmp(received_buf, buf) != 0) {
+            printf("sent string %s\n and got %s\n", buf, received_buf);
             exit(1);
         }
 
