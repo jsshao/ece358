@@ -1,12 +1,3 @@
-/* Mahesh V. Tripunitara
- * University of Waterloo
- * tcp-server.c -- first prints out the IP & port on which in runs.
- * Then awaits connections from clients. Create a pthread for each
- * connection. The thread just reads what the other end sends and
- * write()'s it to a file whose name is the thread's ID.
- */
-
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -59,16 +50,19 @@ int main(int argc, char *argv[]) {
         perror("ACCEPT\n");
     }
 
+    int len = 10;
     for (;;) {
-        char buf[256];
+        char buf[len];
         cout << "WAITING... \n";
-        if (recv(asock, buf, 256, 0) < 0) {
+        if (recv(asock, buf, len, 0) < 0) {
             perror("recv error"); 
             exit(1);
         }
 
-        cout << "REPLYING... \n";
-        if(send(asock, buf, 1, 0) < 0) {
+        char bufcpy[len];
+        memcpy(bufcpy, buf, len);
+        cout << "REPLYING... " << bufcpy << endl;
+        if(send(asock, bufcpy, len, 0) < 0) {
             perror("send"); exit(1);
         }
     }
