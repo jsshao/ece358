@@ -316,7 +316,6 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr) {
                     continue;
             } while ( isCorrupt(third) || getType(third) != THIRD );
 
-            cout<<"connection established"<<endl;
             return i;
         }
     }
@@ -376,11 +375,11 @@ int32_t rcsSend(int32_t sockfd, void *buf, int32_t len) {
 
             totalLen += msgSize;
             rs.pktSeq += 1;
-            rs.pktSeq = rs.pktSeq>=0 ? rs.pktSeq : 0;
+            rs.pktSeq = rs.pktSeq >= 0 ? rs.pktSeq : 0;
             break;
         }
     }
-    return 0;
+    return len;
 }
 
 int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
@@ -434,7 +433,6 @@ int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
     string msg = rs.recvMsg.substr(0, recvLen);
     memcpy(buf, msg.c_str(), msg.length());
     assert(recvLen == msg.length());
-    printf("%s, %i, %i", buf, recvLen, rs.ackSeq);
 
     if(recvLen == rs.recvMsg.length()) {
         rs.recvMsg = "";
@@ -451,7 +449,7 @@ int32_t rcsClose(int32_t sockfd) {
     }
 
     RcsSocket &rs = rcsSockets[sockfd];
-    string killPkt = makeTypePkt(FIRST);
+    string killPkt = makeTypePkt(KILL);
     for(int i=0; i<SPAM_COUNT; i++)
         ucpSendTo(rs.ucpSocket, killPkt.c_str(), killPkt.length(), &(rs.remote));
 
