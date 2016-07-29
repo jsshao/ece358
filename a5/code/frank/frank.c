@@ -81,21 +81,22 @@ int main(int argc, char *argv[]) {
         if(send(s, buf, nread, MSG_NOSIGNAL) < 0) {
             perror("send"); exit(1);
         }
-        printf ("SENT BUF %s, WAITING FOR SERVER", buf);
 
         char received_buf[256];
         if(recv(s, received_buf, 256, 0) < 0) {
-            perror("client recieve key"); 
+            perror("RECEIVE ERROR\n");
             exit(1);
         }
 
         if (!strcmp(received_buf, buf)) {
-            printf("sent string %s and got %s", buf, received_buf);
+            printf("sent string %s and got %s\n", buf, received_buf);
             exit(1);
         }
 
         it += 1;
     }
+
+    printf("SUCCESSFULLY VERIFIED %d STRINGS\n", it);
 
     shutdown(s, SHUT_RDWR);
     close(s);
