@@ -7,15 +7,11 @@
 #include <string>
 #include "rcs.h"
 #include "ucp.h"
-
-
-#include <iostream>
-#include <cassert>
 using namespace std;
 
 #define MAXSOCKETS 5000
 #define SPAM_COUNT 5
-#define UCP_TIMEOUT 1000
+#define UCP_TIMEOUT 1
 
 #define BUFLEN 500
 #define BYTES_CHECKSUM 4
@@ -242,7 +238,8 @@ int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr) {
     string second;
     string third = makeTypePkt(THIRD);
 
-    clock_t begin = clock();
+    time_t start,end;
+    time(&start);
     do {
         ucpSendTo(rs.ucpSocket, first.c_str(), first.length(), addr);
         char buf[BUFLEN];
@@ -250,8 +247,8 @@ int32_t rcsConnect(int32_t sockfd, const struct sockaddr_in *addr) {
 
         // if no valid return message, check for timeout
         if(len <= 0) {
-            clock_t end = clock();
-            if(double(end-begin) / CLOCKS_PER_SEC > 5) {
+            time(&end);
+            if(end-start > 6) {
                 errno = ECONNREFUSED; 
                 return -1;
             }
@@ -295,7 +292,7 @@ int32_t rcsAccept(int32_t sockfd, struct sockaddr_in *addr) {
 
             if( ucpBind(newRs.ucpSocket, &(newRs.local)) != 0 ||
               ucpGetSockName(newRs.ucpSocket, &(newRs.local)) != 0 ||
-              ucpSetSockRecvTimeout(rs.ucpSocket, UCP_TIMEOUT) != 0 ) {
+              ucpSetSockRecvTimeout(newRs.ucpSocket, UCP_TIMEOUT) != 0 ) {
                 newRs.reset();
                 return -1;
             }
@@ -432,7 +429,6 @@ int32_t rcsRecv(int32_t sockfd, void *buf, int32_t len) {
     int recvLen = rs.recvMsg.length() < len ? rs.recvMsg.length() : len;
     string msg = rs.recvMsg.substr(0, recvLen);
     memcpy(buf, msg.c_str(), msg.length());
-    assert(recvLen == msg.length());
 
     if(recvLen == rs.recvMsg.length()) {
         rs.recvMsg = "";
